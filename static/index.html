@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка кандзи</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 0 20px; }
+        canvas { border: 2px solid #333; border-radius: 8px; touch-action: none; background: #fff; }
+        button { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; }
+        .primary { background: #4A90D9; color: white; }
+        .secondary { background: #ddd; color: #333; }
+        .result { margin-top: 15px; padding: 15px; background: #f8f8f8; border-radius: 8px; }
+        .stroke-result { padding: 5px; margin: 5px 0; border-left: 4px solid #ccc; }
+        .good { border-color: #4CAF50; }
+        .ok { border-color: #FF9800; }
+        .bad { border-color: #F44336; }
+        .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .feedback { font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Проверка написания кандзи</h1>
+    
+    <div class="controls">
+        <select id="kanjiSelect">
+            <option value="">-- Выберите иероглиф --</option>
+        </select>
+        <button class="secondary" onclick="nextStroke()">Следующая черта</button>
+        <button class="secondary" onclick="clearAll()">Очистить всё</button>
+        <button class="primary" onclick="checkKanji()">✓ Проверить</button>
+    </div>
+
+    <p>Текущая черта: <span id="currentStroke">1</span> | Нарисовано черт: <span id="strokeCount">0</span></p>
+    
+    <canvas id="canvas" width="400" height="400"></canvas>
+    
+    <div id="result" class="result" style="display: none;">
+        <h3>Результат проверки</h3>
+        <div id="feedback" class="feedback"></div>
+        <div id="strokeResults"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let strokes = [];         // Все завершённые черты
+        let currentPoints = [];   // Точки текущей черты
+        let isDrawing = false;
+        let currentStrokeNum = 1;
+        let selectedKanji = '';
+
+        // Загрузка списка иероглифов при старте
+        fetch('/api/kanji')
+            .then(r => r.json())
+            .then(kanji => {
+                const select = document.getElementById('kanjiSelect');
+                kanji.forEach(k => {
+                    const opt = document.createElement('option');
+                    opt.value = k;
+                    opt.textContent = k;
+                    select.appendChild(opt);
+                });
+            });
+
+        document.getElementById('kanjiSelect').addEventListener('change', function() {
+            selectedKanji = this.value;
+            clearAll();
+        });
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); startDrawing(e.touches[0]); });
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e.touches[0]); });
+        canvas.addEventListener('touchend', stopDrawing);
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function startDrawing(e) {
+            if (!selectedKanji) { alert('Сначала выберите иероглиф!'); return; }
+            isDrawing = true;
+            currentPoints = [];
+            const pos = getPos(e);
+            currentPoints.push(pos);
+            redraw();
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const pos = getPos(e);
+            currentPoints.push(pos);
+            redraw();
+        }
+
+        function stopDrawing() {
+            if (!isDrawing) return;
+            isDrawing = false;
+            if (currentPoints.length > 3) {
+                currentPoints = smoothPoints(currentPoints, 3); // ← сглаживаем
+                strokes.push([...currentPoints]);
+                strokes.push([...currentPoints]);
+                document.getElementById('strokeCount').textContent = strokes.length;
+            }
+            currentPoints = [];
+            redraw();
+        }
+        // Сглаживание траектории: удаляет дубликаты и усредняет соседей
+        function smoothPoints(points, minDist = 3) {
+            if (points.length < 3) return points;
+            const smoothed = [];
+            smoothed.push(points[0]);
+            for (let i = 1; i < points.length - 1; i++) {
+                const prev = points[i - 1];
+                const curr = points[i];
+                const next = points[i + 1];
+                // Среднее трёх соседних точек (сколзящее среднее)
+                const sx = (prev.x + curr.x + next.x) / 3;
+                const sy = (prev.y + curr.y + next.y) / 3;
+                // Добавляем, только если достаточно далеко от предыдущей добавленной
+                const last = smoothed[smoothed.length - 1];
+                const dist = Math.hypot(sx - last.x, sy - last.y);
+                if (dist >= minDist) {
+                    smoothed.push({x: sx, y: sy});
+                }
+            }
+            smoothed.push(points[points.length - 1]);
+            return smoothed;
+        }
+
+// Вызывать при завершении черты (в stopDrawing и nextStroke)
+
+        function redraw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Рисуем завершённые черты серым
+            strokes.forEach(stroke => {
+                ctx.strokeStyle = '#999';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(stroke[0].x, stroke[0].y);
+                for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
+                ctx.stroke();
+            });
+            // Рисуем текущую черту чёрным
+            if (currentPoints.length > 1) {
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+                for (let i = 1; i < currentPoints.length; i++) ctx.lineTo(currentPoints[i].x, currentPoints[i].y);
+                ctx.stroke();
+            }
+        }
+
+        function nextStroke() {
+            if (currentPoints.length > 3) {
+                currentPoints = smoothPoints(currentPoints, 3); // ← сглаживаем
+                strokes.push([...currentPoints]);
+                strokes.push([...currentPoints]);
+                document.getElementById('strokeCount').textContent = strokes.length;
+            }
+            currentPoints = [];
+            currentStrokeNum = strokes.length + 1;
+            document.getElementById('currentStroke').textContent = currentStrokeNum;
+            redraw();
+        }
+
+        function clearAll() {
+            strokes = [];
+            currentPoints = [];
+            currentStrokeNum = 1;
+            document.getElementById('currentStroke').textContent = '1';
+            document.getElementById('strokeCount').textContent = '0';
+            document.getElementById('result').style.display = 'none';
+            redraw();
+        }
+
+        async function checkKanji() {
+            if (!selectedKanji) { alert('Выберите иероглиф!'); return; }
+            if (currentPoints.length > 3) {
+                strokes.push([...currentPoints]);
+                currentPoints = [];
+            }
+            if (strokes.length === 0) { alert('Нарисуйте хотя бы одну черту!'); return; }
+
+            const payload = {
+                kanji: selectedKanji,
+                strokes: strokes
+            };
+
+            const resp = await fetch('/api/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await resp.json();
+            showResult(result);
+        }
+
+        function showResult(result) {
+            const resultDiv = document.getElementById('result');
+            const feedbackDiv = document.getElementById('feedback');
+            const strokeResultsDiv = document.getElementById('strokeResults');
+
+            resultDiv.style.display = 'block';
+            feedbackDiv.textContent = result.feedback;
+            feedbackDiv.style.color = result.overallScore > 0.8 ? '#4CAF50' : result.overallScore > 0.5 ? '#FF9800' : '#F44336';
+
+            let html = '';
+            result.strokeResults.forEach(sr => {
+                const cls = sr.overallScore > 0.8 ? 'good' : sr.overallScore > 0.5 ? 'ok' : 'bad';
+                html += `<div class="stroke-result ${cls}">
+                    <strong>Черта ${sr.order}</strong>: 
+                    похожесть: ${(sr.similarity*100).toFixed(0)}%, 
+                    угол: ${sr.angleDiff.toFixed(1)}°, 
+                    длина: ${(sr.lengthDiff*100).toFixed(0)}%,
+                    <strong>итог: ${(sr.overallScore*100).toFixed(0)}%</strong>
+                </div>`;
+            });
+            strokeResultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
