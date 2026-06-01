@@ -3,6 +3,7 @@ package stroke
 import (
 	"encoding/xml"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ type svgGroup struct {
 type svgPath struct {
 	Data string `xml:"d,attr"`
 	Type string `xml:"kvg:type,attr"`
+	ID   string `xml:"id,attr"`
 }
 
 func LoadKanjiVG(filePath string, kanjiChar string) (*KanjiTemplate, error) {
@@ -49,10 +51,13 @@ func LoadKanjiVG(filePath string, kanjiChar string) (*KanjiTemplate, error) {
 				pts, err := parseSVGPathData(p.Data)
 				if err == nil && len(pts) >= 2 {
 					strokeOrder++
-					strokes = append(strokes, Stroke{
+					s := Stroke{
 						Points: pts,
 						Order:  strokeOrder,
-					})
+					}
+					// Нормализуем направление
+					normalizeStrokeDirection(&s)
+					strokes = append(strokes, s)
 					fmt.Printf("DEBUG: черта %d, тип=%s, точек=%d\n", strokeOrder, p.Type, len(pts))
 				}
 			}
@@ -71,15 +76,16 @@ func LoadKanjiVG(filePath string, kanjiChar string) (*KanjiTemplate, error) {
 		pts, err := parseSVGPathData(p.Data)
 		if err == nil && len(pts) >= 2 {
 			strokeOrder++
-			strokes = append(strokes, Stroke{
+			s := Stroke{
 				Points: pts,
 				Order:  strokeOrder,
-			})
+			}
+			normalizeStrokeDirection(&s)
+			strokes = append(strokes, s)
 		}
 	}
 
 	if len(strokes) == 0 {
-		// Печатаем структуру для диагностики
 		fmt.Printf("DEBUG: групп верхнего уровня: %d\n", len(root.Groups))
 		printGroupStructure(root.Groups, 0)
 		return nil, fmt.Errorf("не найдено ни одной черты в файле %s", filePath)
@@ -90,6 +96,40 @@ func LoadKanjiVG(filePath string, kanjiChar string) (*KanjiTemplate, error) {
 		Char:    kanjiChar,
 		Strokes: strokes,
 	}, nil
+}
+
+// normalizeStrokeDirection разворачивает черту, если она идёт в неправильном направлении.
+// Японские черты всегда пишутся сверху вниз и слева направо.
+func normalizeStrokeDirection(s *Stroke) {
+	if len(s.Points) < 2 {
+		return
+	}
+	first := s.Points[0]
+	last := s.Points[len(s.Points)-1]
+
+	dy := last.Y - first.Y
+	dx := last.X - first.X
+
+	shouldReverse := false
+
+	if math.Abs(dy) > math.Abs(dx) {
+		// Вертикальная черта: должна идти сверху вниз (dy > 0)
+		if dy < 0 {
+			shouldReverse = true
+		}
+	} else {
+		// Горизонтальная черта: должна идти слева направо (dx > 0)
+		if dx < 0 {
+			shouldReverse = true
+		}
+	}
+
+	if shouldReverse {
+		for i, j := 0, len(s.Points)-1; i < j; i, j = i+1, j-1 {
+			s.Points[i], s.Points[j] = s.Points[j], s.Points[i]
+		}
+		fmt.Printf("  → Черта %d развёрнута (dy=%.1f, dx=%.1f)\n", s.Order, dy, dx)
+	}
 }
 
 func printGroupStructure(groups []svgGroup, depth int) {
@@ -103,33 +143,28 @@ func printGroupStructure(groups []svgGroup, depth int) {
 	}
 }
 
-// parseSVGPathData разбирает SVG-путь и возвращает слайс точек.
-// Поддерживает команды: M, L, C, Q, H, V, Z (и их относительные версии).
 func parseSVGPathData(data string) ([]Point, error) {
 	var points []Point
 	var curX, curY, startX, startY float64
 
-	// Разбиваем строку на команды и их аргументы
 	tokens := tokenizeSVGPath(data)
 
-	var cmd byte = 'M' // Текущая команда
+	var cmd byte = 'M'
 	var prevCmd byte = 'M'
 
 	i := 0
 	for i < len(tokens) {
 		token := tokens[i]
 
-		// Проверяем, является ли токен командой
 		if isSVGCommand(token) {
 			cmd = token[0]
 			if cmd >= 'a' && cmd <= 'z' {
-				cmd -= 32 // Приводим к верхнему регистру
+				cmd -= 32
 			}
 			i++
 			continue
 		}
 
-		// Обрабатываем аргументы
 		switch cmd {
 		case 'M', 'L':
 			if i+1 < len(tokens) {
@@ -142,7 +177,7 @@ func parseSVGPathData(data string) ([]Point, error) {
 				points = append(points, Point{X: x, Y: y})
 				if cmd == 'M' {
 					startX, startY = x, y
-					cmd = 'L' // После M неявно следует L
+					cmd = 'L'
 				}
 				prevCmd = 'L'
 				i += advance
@@ -194,7 +229,6 @@ func parseSVGPathData(data string) ([]Point, error) {
 				y, e6 := parseFloatToken(tokens[i+5])
 
 				if e1 == nil && e2 == nil && e3 == nil && e4 == nil && e5 == nil && e6 == nil {
-					// Для относительных координат преобразуем
 					if cmd == 'c' {
 						x1 += curX
 						y1 += curY
@@ -203,7 +237,6 @@ func parseSVGPathData(data string) ([]Point, error) {
 						x += curX
 						y += curY
 					}
-					// Интерполируем кривую Безье (20 шагов)
 					const steps = 20
 					for s := 1; s <= steps; s++ {
 						t := float64(s) / float64(steps)
@@ -268,7 +301,6 @@ func parseSVGPathData(data string) ([]Point, error) {
 	return points, nil
 }
 
-// tokenizeSVGPath разбивает строку пути на токены (команды и числа)
 func tokenizeSVGPath(data string) []string {
 	var tokens []string
 	var current strings.Builder
@@ -287,7 +319,6 @@ func tokenizeSVGPath(data string) []string {
 			}
 			tokens = append(tokens, string(r))
 		case r == '-':
-			// Минус может быть началом числа или разделителем
 			if current.Len() > 0 && current.String() != "-" {
 				tokens = append(tokens, current.String())
 				current.Reset()
@@ -303,7 +334,6 @@ func tokenizeSVGPath(data string) []string {
 	return tokens
 }
 
-// isSVGCommand возвращает true, если токен — команда SVG
 func isSVGCommand(s string) bool {
 	if len(s) != 1 {
 		return false
@@ -312,7 +342,6 @@ func isSVGCommand(s string) bool {
 	return strings.ContainsRune("MmLlCcQqZzHhVv", rune(c))
 }
 
-// parseNextCoord извлекает следующую пару координат (x, y)
 func parseNextCoord(tokens []string, i int, curX, curY float64, cmd byte) (float64, float64, int, error) {
 	x, err1 := parseFloatToken(tokens[i])
 	y, err2 := parseFloatToken(tokens[i+1])

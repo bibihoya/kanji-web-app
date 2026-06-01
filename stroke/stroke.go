@@ -63,6 +63,9 @@ func (s *Stroke) Normalize() {
 }
 
 // DirectionAngle возвращает угол направления от первой до последней точки (в радианах)
+// DirectionAngle возвращает средневзвешенный угол всех сегментов черты.
+// Длинные сегменты влияют больше, чем короткие.
+// Для прямой линии эквивалентен углу от первой до последней точки.
 func (s *Stroke) DirectionAngle() float64 {
 	if len(s.Points) < 2 {
 		return 0
@@ -132,30 +135,44 @@ func (s *Stroke) normalizeSize() {
 		return
 	}
 
-	var maxDist float64
+	minX, maxX := s.Points[0].X, s.Points[0].X
+	minY, maxY := s.Points[0].Y, s.Points[0].Y
 	for _, p := range s.Points {
-		dist := math.Sqrt(p.X*p.X + p.Y*p.Y)
-		if dist > maxDist {
-			maxDist = dist
+		if p.X < minX {
+			minX = p.X
+		}
+		if p.X > maxX {
+			maxX = p.X
+		}
+		if p.Y < minY {
+			minY = p.Y
+		}
+		if p.Y > maxY {
+			maxY = p.Y
 		}
 	}
 
-	if maxDist > 0 {
-		for i := range s.Points {
-			s.Points[i].X /= maxDist
-			s.Points[i].Y /= maxDist
-		}
+	width := maxX - minX
+	height := maxY - minY
+	scale := math.Max(width, height)
+	if scale == 0 {
+		scale = 1
+	}
+
+	for i := range s.Points {
+		s.Points[i].X /= scale
+		s.Points[i].Y /= scale
 	}
 }
 
 // Rotate поворачивает все точки на заданный угол (в радианах)
 func (s *Stroke) Rotate(angle float64) {
-    cos := math.Cos(angle)
-    sin := math.Sin(angle)
-    for i := range s.Points {
-        x := s.Points[i].X
-        y := s.Points[i].Y
-        s.Points[i].X = x*cos - y*sin
-        s.Points[i].Y = x*sin + y*cos
-    }
+	cos := math.Cos(angle)
+	sin := math.Sin(angle)
+	for i := range s.Points {
+		x := s.Points[i].X
+		y := s.Points[i].Y
+		s.Points[i].X = x*cos - y*sin
+		s.Points[i].Y = x*sin + y*cos
+	}
 }

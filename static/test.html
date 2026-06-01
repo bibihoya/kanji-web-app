@@ -1,0 +1,7 @@
+<h1>Тест</h1>
+<script>
+fetch('/api/kanji')
+  .then(r => r.json())
+  .then(d => console.log('OK:', d))
+  .catch(e => console.error('ERR:', e));
+</script>

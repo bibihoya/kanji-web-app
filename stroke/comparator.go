@@ -47,10 +47,24 @@ func CompareStrokes(template, drawn Stroke, order int) StrokeResult {
 		len(t.Points), minX(t.Points), maxX(t.Points), minY(t.Points), maxY(t.Points))
 	fmt.Printf("Польз.: %d точек, диапазон X=[%.1f-%.1f], Y=[%.1f-%.1f]\n",
 		len(d.Points), minX(d.Points), maxX(d.Points), minY(d.Points), maxY(d.Points))
+	// ДО ВСЕХ ОБРАБОТОК: проверяем направление
+	fmt.Printf("ДО ОБРАБОТКИ: первая точка (%.1f, %.1f), последняя (%.1f, %.1f)\n",
+		d.Points[0].X, d.Points[0].Y,
+		d.Points[len(d.Points)-1].X, d.Points[len(d.Points)-1].Y)
+	fmt.Printf("  Эталон: первая (%.1f, %.1f), последняя (%.1f, %.1f)\n",
+		t.Points[0].X, t.Points[0].Y,
+		t.Points[len(t.Points)-1].X, t.Points[len(t.Points)-1].Y)
 
 	// Центрирование
 	t.centerPoints()
 	d.centerPoints()
+
+	fmt.Printf("ПОСЛЕ ЦЕНТРИРОВАНИЯ: первая точка (%.3f, %.3f), последняя (%.3f, %.3f)\n",
+		d.Points[0].X, d.Points[0].Y,
+		d.Points[len(d.Points)-1].X, d.Points[len(d.Points)-1].Y)
+	fmt.Printf("  Эталон: первая (%.3f, %.3f), последняя (%.3f, %.3f)\n",
+		t.Points[0].X, t.Points[0].Y,
+		t.Points[len(t.Points)-1].X, t.Points[len(t.Points)-1].Y)
 
 	fmt.Printf("ПОСЛЕ ЦЕНТРИРОВАНИЯ:\n")
 	fmt.Printf("Эталон: X=[%.3f-%.3f], Y=[%.3f-%.3f]\n",
@@ -65,9 +79,6 @@ func CompareStrokes(template, drawn Stroke, order int) StrokeResult {
 		angleDiff = 360 - angleDiff
 	}
 
-	// 3. Поворачиваем пользовательскую черту к эталонному углу
-	d.Rotate(tAngle - dAngle) // теперь направления совпадают
-
 	// Нормализация размера
 	t.normalizeSize()
 	d.normalizeSize()
@@ -78,12 +89,19 @@ func CompareStrokes(template, drawn Stroke, order int) StrokeResult {
 	fmt.Printf("Польз.: X=[%.3f-%.3f], Y=[%.3f-%.3f]\n",
 		minX(d.Points), maxX(d.Points), minY(d.Points), maxY(d.Points))
 
+	fmt.Printf("ПОСЛЕ НОРМАЛИЗАЦИИ: первая точка (%.3f, %.3f), последняя (%.3f, %.3f)\n",
+		d.Points[0].X, d.Points[0].Y,
+		d.Points[len(d.Points)-1].X, d.Points[len(d.Points)-1].Y)
+	fmt.Printf("  Эталон: первая (%.3f, %.3f), последняя (%.3f, %.3f)\n",
+		t.Points[0].X, t.Points[0].Y,
+		t.Points[len(t.Points)-1].X, t.Points[len(t.Points)-1].Y)
+
 	// DTW расстояние
 	dtwScore := DTW(t.Points, d.Points)
 	fmt.Printf("DTW расстояние: %.4f\n", dtwScore)
 
 	// Преобразование в similarity
-	similarity := 1.0 / (1.0 + dtwScore/15.0)
+	similarity := 1.0 / (1.0 + dtwScore/25.0)
 	fmt.Printf("Similarity (форма): %.4f\n", similarity)
 
 	// Угол
@@ -104,9 +122,14 @@ func CompareStrokes(template, drawn Stroke, order int) StrokeResult {
 		tLen, dLen, lengthDiff*100)
 
 	// Итоговые оценки
-	angleScore := math.Exp(-angleDiff / 60.0)
 	lengthScore := math.Exp(-lengthDiff * 2)
-	overallScore := 0.45*similarity + 0.35*angleScore + 0.2*lengthScore
+	angleScore := 1.0
+	if angleDiff > 30 {
+		angleScore = math.Exp(-(angleDiff - 30) / 60.0)
+	}
+
+	// Итог: форма 50%, длина 30%, угол 20%
+	overallScore := 0.6*similarity + 0.4*lengthScore
 	fmt.Printf("Оценки: форма=%.3f, угол=%.3f, длина=%.3f, ИТОГО=%.3f\n",
 		similarity, angleScore, lengthScore, overallScore)
 
