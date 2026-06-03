@@ -151,6 +151,7 @@ func parseSVGPathData(data string) ([]Point, error) {
 
 	var cmd byte = 'M'
 	var prevCmd byte = 'M'
+	var isRelative bool
 
 	i := 0
 	for i < len(tokens) {
@@ -158,7 +159,8 @@ func parseSVGPathData(data string) ([]Point, error) {
 
 		if isSVGCommand(token) {
 			cmd = token[0]
-			if cmd >= 'a' && cmd <= 'z' {
+			isRelative = cmd >= 'a' && cmd <= 'z'
+			if isRelative {
 				cmd -= 32
 			}
 			i++
@@ -168,7 +170,7 @@ func parseSVGPathData(data string) ([]Point, error) {
 		switch cmd {
 		case 'M', 'L':
 			if i+1 < len(tokens) {
-				x, y, advance, err := parseNextCoord(tokens, i, curX, curY, cmd)
+				x, y, advance, err := parseNextCoord(tokens, i, curX, curY, isRelative)
 				if err != nil {
 					i++
 					continue
@@ -178,6 +180,7 @@ func parseSVGPathData(data string) ([]Point, error) {
 				if cmd == 'M' {
 					startX, startY = x, y
 					cmd = 'L'
+					isRelative = false
 				}
 				prevCmd = 'L'
 				i += advance
@@ -189,7 +192,7 @@ func parseSVGPathData(data string) ([]Point, error) {
 			if i < len(tokens) {
 				val, err := parseFloatToken(tokens[i])
 				if err == nil {
-					if cmd == 'h' {
+					if isRelative {
 						curX += val
 					} else {
 						curX = val
@@ -206,7 +209,7 @@ func parseSVGPathData(data string) ([]Point, error) {
 			if i < len(tokens) {
 				val, err := parseFloatToken(tokens[i])
 				if err == nil {
-					if cmd == 'v' {
+					if isRelative {
 						curY += val
 					} else {
 						curY = val
@@ -229,7 +232,7 @@ func parseSVGPathData(data string) ([]Point, error) {
 				y, e6 := parseFloatToken(tokens[i+5])
 
 				if e1 == nil && e2 == nil && e3 == nil && e4 == nil && e5 == nil && e6 == nil {
-					if cmd == 'c' {
+					if isRelative {
 						x1 += curX
 						y1 += curY
 						x2 += curX
@@ -261,7 +264,7 @@ func parseSVGPathData(data string) ([]Point, error) {
 				y, e4 := parseFloatToken(tokens[i+3])
 
 				if e1 == nil && e2 == nil && e3 == nil && e4 == nil {
-					if cmd == 'q' {
+					if isRelative {
 						x1 += curX
 						y1 += curY
 						x += curX
@@ -299,6 +302,19 @@ func parseSVGPathData(data string) ([]Point, error) {
 	}
 
 	return points, nil
+}
+
+func parseNextCoord(tokens []string, i int, curX, curY float64, isRelative bool) (float64, float64, int, error) {
+	x, err1 := parseFloatToken(tokens[i])
+	y, err2 := parseFloatToken(tokens[i+1])
+	if err1 != nil || err2 != nil {
+		return 0, 0, 0, fmt.Errorf("некорректные координаты")
+	}
+	if isRelative {
+		x += curX
+		y += curY
+	}
+	return x, y, 2, nil
 }
 
 func tokenizeSVGPath(data string) []string {
@@ -340,19 +356,6 @@ func isSVGCommand(s string) bool {
 	}
 	c := s[0]
 	return strings.ContainsRune("MmLlCcQqZzHhVv", rune(c))
-}
-
-func parseNextCoord(tokens []string, i int, curX, curY float64, cmd byte) (float64, float64, int, error) {
-	x, err1 := parseFloatToken(tokens[i])
-	y, err2 := parseFloatToken(tokens[i+1])
-	if err1 != nil || err2 != nil {
-		return 0, 0, 0, fmt.Errorf("некорректные координаты")
-	}
-	if cmd == 'm' || cmd == 'l' {
-		x += curX
-		y += curY
-	}
-	return x, y, 2, nil
 }
 
 func parseFloatToken(s string) (float64, error) {

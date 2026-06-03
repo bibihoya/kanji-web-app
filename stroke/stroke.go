@@ -131,38 +131,25 @@ func (s *Stroke) centerPoints() {
 
 // normalizeSize масштабирует траекторию так, чтобы максимальный размер стал 1.0
 func (s *Stroke) normalizeSize() {
-	if len(s.Points) == 0 {
-		return
-	}
-
-	minX, maxX := s.Points[0].X, s.Points[0].X
-	minY, maxY := s.Points[0].Y, s.Points[0].Y
-	for _, p := range s.Points {
-		if p.X < minX {
-			minX = p.X
-		}
-		if p.X > maxX {
-			maxX = p.X
-		}
-		if p.Y < minY {
-			minY = p.Y
-		}
-		if p.Y > maxY {
-			maxY = p.Y
-		}
-	}
-
-	width := maxX - minX
-	height := maxY - minY
-	scale := math.Max(width, height)
-	if scale == 0 {
-		scale = 1
-	}
-
-	for i := range s.Points {
-		s.Points[i].X /= scale
-		s.Points[i].Y /= scale
-	}
+    if len(s.Points) == 0 {
+        return
+    }
+    minX, maxX := s.Points[0].X, s.Points[0].X
+    minY, maxY := s.Points[0].Y, s.Points[0].Y
+    for _, p := range s.Points {
+        if p.X < minX { minX = p.X }
+        if p.X > maxX { maxX = p.X }
+        if p.Y < minY { minY = p.Y }
+        if p.Y > maxY { maxY = p.Y }
+    }
+    width := maxX - minX
+    height := maxY - minY
+    scale := math.Max(width, height)
+    if scale == 0 { scale = 1 }
+    for i := range s.Points {
+        s.Points[i].X /= scale
+        s.Points[i].Y /= scale
+    }
 }
 
 // Rotate поворачивает все точки на заданный угол (в радианах)

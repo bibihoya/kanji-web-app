@@ -115,6 +115,8 @@ func CompareStrokes(template, drawn Stroke, order int) StrokeResult {
 		tAngle*180.0/math.Pi, dAngle*180.0/math.Pi, angleDiff)
 
 	// Длина
+	// Длина — сравниваем размеры bounding box'ов
+	// Длина — сравниваем реальную длину кривой
 	tLen := t.Length()
 	dLen := d.Length()
 	lengthDiff := math.Abs(tLen-dLen) / math.Max(tLen, dLen)
@@ -129,7 +131,7 @@ func CompareStrokes(template, drawn Stroke, order int) StrokeResult {
 	}
 
 	// Итог: форма 50%, длина 30%, угол 20%
-	overallScore := 0.6*similarity + 0.4*lengthScore
+	overallScore := 0.5*similarity + 0.3*lengthScore + 0.2*angleScore
 	fmt.Printf("Оценки: форма=%.3f, угол=%.3f, длина=%.3f, ИТОГО=%.3f\n",
 		similarity, angleScore, lengthScore, overallScore)
 
@@ -230,9 +232,9 @@ func generateFeedback(result AnalysisResult, template *KanjiTemplate, drawn []St
 	var feedbackParts []string
 
 	// Общая оценка
-	if result.OverallScore >= 0.85 {
+	if result.OverallScore >= 0.9 {
 		feedbackParts = append(feedbackParts, "🎉 Отлично! Иероглиф написан очень хорошо.")
-	} else if result.OverallScore >= 0.7 {
+	} else if result.OverallScore >= 0.8 {
 		feedbackParts = append(feedbackParts, "👍 Хорошо! Есть небольшие замечания.")
 	} else if result.OverallScore >= 0.5 {
 		feedbackParts = append(feedbackParts, "📝 Неплохо, но нужно доработать некоторые черты.")

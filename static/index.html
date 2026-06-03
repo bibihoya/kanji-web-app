@@ -108,21 +108,20 @@
         }
 
         function drawTemplate() {
-            if (!showTemplate || templatePaths.length === 0) return;
-            const scaleX = canvas.width / 109;
-            const scaleY = canvas.height / 109;
-            
-            templatePaths.forEach((d, i) => {
-                ctx.save();
-                ctx.globalAlpha = (strokeColors[i] === '#999999') ? 0.15 : 0.4;
-                ctx.strokeStyle = strokeColors[i];
-                ctx.lineWidth = (strokeColors[i] === '#0066cc') ? 4 : 2;
-                ctx.scale(scaleX, scaleY);
-                const p = new Path2D(d);
-                ctx.stroke(p);
-                ctx.restore();
-            });
-        }
+    if (!showTemplate || templatePaths.length === 0) return;
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.strokeStyle = '#0066cc';
+    ctx.lineWidth = 2;
+    
+    templatePaths.forEach((d, i) => {
+        ctx.strokeStyle = strokeColors[i] || '#0066cc';
+        ctx.globalAlpha = (strokeColors[i] === '#999999') ? 0.15 : 0.4;
+        const p = new Path2D(d);
+        ctx.stroke(p);
+    });
+    ctx.restore();
+}
 
         // Обработчики рисования
         canvas.addEventListener('mousedown', startDrawing);
@@ -134,9 +133,15 @@
         canvas.addEventListener('touchend', stopDrawing);
 
         function getPos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        }
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    // Пересчитываем в пространство эталона (109×109)
+    return { 
+        x: canvasX * 109 / canvas.width, 
+        y: canvasY * 109 / canvas.height 
+    };
+}
 
         function startDrawing(e) {
             if (!selectedKanji) { alert('Сначала выберите иероглиф!'); return; }
@@ -183,88 +188,105 @@
 
 function redraw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawTemplate(); // эталон с цветными чертами
-    // Текущая черта (пока рисует)
+    
+    // Масштабируем canvas для отрисовки эталона
+    ctx.save();
+    ctx.scale(canvas.width / 109, canvas.height / 109);
+    drawTemplate();
+    ctx.restore();
+    
+    // Текущая черта (только пока рисует)
     if (currentPoints.length > 1) {
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
-        for (let i = 1; i < currentPoints.length; i++) ctx.lineTo(currentPoints[i].x, currentPoints[i].y);
+        ctx.moveTo(currentPoints[0].x * canvas.width / 109, currentPoints[0].y * canvas.height / 109);
+        for (let i = 1; i < currentPoints.length; i++) {
+            ctx.lineTo(currentPoints[i].x * canvas.width / 109, currentPoints[i].y * canvas.height / 109);
+        }
         ctx.stroke();
     }
 }
-        async function checkCurrentStroke() {
-            if (!selectedKanji) { alert('Выберите иероглиф!'); return; }
-            if (currentStrokeIndex >= totalStrokesCount) {
-                document.getElementById('feedback').textContent = '🎉 Все черты нарисованы!';
-                return;
-            }
-            if (currentPoints.length < 4) {
-                document.getElementById('feedback').textContent = 'Нарисуйте черту (минимум 4 точки)';
-                return;
-            }
+       async function checkCurrentStroke() {
+    if (!selectedKanji) { alert('Выберите иероглиф!'); return; }
+    if (currentStrokeIndex >= totalStrokesCount) {
+        document.getElementById('feedback').textContent = '🎉 Все черты нарисованы!';
+        return;
+    }
+    if (currentPoints.length < 4) {
+        document.getElementById('feedback').textContent = 'Нарисуйте черту (минимум 4 точки)';
+        return;
+    }
 
-            // Сглаживаем
-            const smoothed = smoothPoints(currentPoints, 3);
+    const smoothed = smoothPoints(currentPoints, 3);
+    
+    const payload = {
+        kanji: selectedKanji,
+        strokeIndex: currentStrokeIndex,
+        points: smoothed
+    };
+
+    try {
+        const resp = await fetch('/api/check-stroke', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await resp.json();
+        
+        if (result.overallScore >= 0.80) {
+            // Принято — зелёная черта
+            strokeColors[currentStrokeIndex] = '#4CAF50';
             
-            // Отправляем на проверку
-            const payload = {
-                kanji: selectedKanji,
-                strokeIndex: currentStrokeIndex,
-                points: smoothed
-            };
-
-            try {
-                const resp = await fetch('/api/check-stroke', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await resp.json();
-                
-                if (result.overallScore >= 0.70) {
-                    // Отлично
-                    strokeColors[currentStrokeIndex] = '#4CAF50';
-                    document.getElementById('feedback').innerHTML = 
-                        `🎉 <span class="good">Молодец!</span> Черта ${currentStrokeIndex+1}: ${(result.overallScore*100).toFixed(0)}%`;
-                    advanceStroke();
-                } else if (result.overallScore >= 0.50) {
-                    // Принято
-                    strokeColors[currentStrokeIndex] = '#FF9800';
-                    document.getElementById('feedback').innerHTML = 
-                        `👍 <span class="ok">Принято.</span> Черта ${currentStrokeIndex+1}: ${(result.overallScore*100).toFixed(0)}%`;
-                    advanceStroke();
-                } else {
-                    // Неудачно
-                    attempts++;
-                    updateStrokeInfo();
-                    if (attempts >= 3) {
-                        strokeColors[currentStrokeIndex] = '#F44336';
-                        document.getElementById('feedback').innerHTML = 
-                            `😔 <span class="bad">Нужно повторить!</span> Черта ${currentStrokeIndex+1} не удалась за 3 попытки.`;
-                        // Принудительно переходим к следующей
-                        advanceStroke();
-                    } else {
-                        // Мигаем красным
-                        const prevColor = strokeColors[currentStrokeIndex];
-                        strokeColors[currentStrokeIndex] = '#F44336';
-                        redraw();
-                        document.getElementById('feedback').innerHTML = 
-                            `🔄 <span class="bad">Перерисуйте!</span> Попытка ${attempts}/3. Оценка: ${(result.overallScore*100).toFixed(0)}%`;
-                        setTimeout(() => {
-                            strokeColors[currentStrokeIndex] = '#0066cc';
-                            redraw();
-                        }, 1500);
-                    }
-                }
-            } catch (err) {
-                console.error('Ошибка проверки:', err);
+            const percentage = (result.overallScore * 100).toFixed(0);
+            if (result.overallScore >= 0.90) {
+                document.getElementById('feedback').innerHTML = 
+                    `🎉 <span class="good">Отлично!</span> Черта ${currentStrokeIndex+1}: ${percentage}%`;
+            } else {
+                document.getElementById('feedback').innerHTML = 
+                    `✅ <span class="good">Принято!</span> Черта ${currentStrokeIndex+1}: ${percentage}%`;
             }
-
-            currentPoints = [];
-            redraw();
+            
+            advanceStroke();
+        } else {
+            attempts++;
+            updateStrokeInfo();
+            
+            // Визуальный сигнал: мигаем фоном canvas
+            canvas.style.backgroundColor = '#ffcccc';
+            canvas.style.transition = 'background-color 0.3s';
+            setTimeout(() => { 
+                canvas.style.backgroundColor = '#ffffff'; 
+            }, 500);
+            
+            if (attempts >= 3) {
+                strokeColors[currentStrokeIndex] = '#F44336';
+                document.getElementById('feedback').innerHTML = 
+                    `😔 <span class="bad">Нужно повторить!</span> Черта ${currentStrokeIndex+1} не удалась за 3 попытки.`;
+                advanceStroke();
+            } else {
+                const prevColor = strokeColors[currentStrokeIndex];
+                strokeColors[currentStrokeIndex] = '#F44336';
+                redraw();
+                
+                const percentage = (result.overallScore * 100).toFixed(0);
+                document.getElementById('feedback').innerHTML = 
+                    `🔄 <span class="bad">Перерисуйте!</span> Попытка ${attempts}/3. Оценка: ${percentage}%`;
+                
+                setTimeout(() => {
+                    strokeColors[currentStrokeIndex] = '#0066cc';
+                    redraw();
+                }, 1500);
+            }
         }
+    } catch (err) {
+        console.error('Ошибка проверки:', err);
+        document.getElementById('feedback').textContent = 'Ошибка соединения с сервером';
+    }
+
+    currentPoints = [];
+    redraw();
+}
 
         function advanceStroke() {
             currentStrokeIndex++;
@@ -297,21 +319,22 @@ function redraw() {
         }
 
         function resetAll() {
-            strokes = [];
-            currentPoints = [];
-            currentStrokeIndex = 0;
-            attempts = 0;
-            strokeColors = templatePaths.map((_, i) => i === 0 ? '#0066cc' : '#999999');
-            updateStrokeInfo();
-            document.getElementById('feedback').textContent = 'Нарисуйте первую черту';
-            document.getElementById('strokeDetails').innerHTML = '';
-            redraw();
-        }
+    strokes = [];
+    userStrokes = [];
+    currentPoints = [];
+    currentStrokeIndex = 0;
+    attempts = 0;
+    strokeColors = templatePaths.map((_, i) => i === 0 ? '#0066cc' : '#999999');
+    updateStrokeInfo();
+    document.getElementById('feedback').textContent = 'Нарисуйте первую черту';
+    document.getElementById('strokeDetails').innerHTML = '';
+    redraw();
+}
 
         function toggleTemplate() {
-            showTemplate = !showTemplate;
-            redraw();
-        }
+    showTemplate = !showTemplate;
+    redraw();
+}
 
         function updateStrokeInfo() {
             document.getElementById('currentStrokeNum').textContent = currentStrokeIndex + 1;
