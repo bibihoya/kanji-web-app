@@ -131,7 +131,7 @@ func CompareStrokes(template, drawn Stroke, order int) StrokeResult {
 	}
 
 	// Итог: форма 50%, длина 30%, угол 20%
-	overallScore := 0.5*similarity + 0.3*lengthScore + 0.2*angleScore
+	overallScore := 0.5*similarity + 0.1*lengthScore + 0.4*angleScore
 	fmt.Printf("Оценки: форма=%.3f, угол=%.3f, длина=%.3f, ИТОГО=%.3f\n",
 		similarity, angleScore, lengthScore, overallScore)
 

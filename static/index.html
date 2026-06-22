@@ -198,6 +198,12 @@
         <span>Попытки: <span id="attemptsCount" class="attempts">0/3</span></span>
     </div>
 
+    <div style="text-align: center; margin: 8px 0;">
+        <a id="dictLink" href="#" target="_blank" style="color: var(--primary); text-decoration: none; font-size: 14px; display: none;">
+            📚 Открыть в словаре
+        </a>
+    </div>
+
     <!-- Индикатор прогресса черт -->
     <div class="progress-bar" id="progressBar"></div>
 
@@ -269,12 +275,18 @@
         const select = document.getElementById('kanjiSelect');
         selectedKanji = select.value;
         if (selectedKanji) {
-            // Находим иероглиф в кеше
             const found = allKanji.find(k => k.id === selectedKanji);
             if (found) {
                 loadTemplate(selectedKanji);
                 resetAll();
+
+                // Обновляем ссылку на словарь
+                const dictLink = document.getElementById('dictLink');
+                dictLink.href = `/dictionary.html?kanji=${encodeURIComponent(found.character)}`;
+                dictLink.style.display = 'inline';
             }
+        } else {
+            document.getElementById('dictLink').style.display = 'none';
         }
     }
 
@@ -301,6 +313,14 @@
         } catch (err) {
             console.error('Не удалось загрузить эталон:', err);
             document.getElementById('feedback').textContent = 'Ошибка загрузки эталона';
+        }
+
+        // Обновляем ссылку на словарь
+        const found = allKanji.find(k => k.id === kanjiId);
+        if (found) {
+            const dictLink = document.getElementById('dictLink');
+            dictLink.href = `/dictionary.html?kanji=${encodeURIComponent(found.character)}`;
+            dictLink.style.display = 'inline';
         }
     }
 

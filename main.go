@@ -57,6 +57,8 @@ func main() {
 	// API для проверки одной черты
 	http.HandleFunc("/api/check-stroke", handleCheckStroke)
 
+	http.HandleFunc("/api/dictionary/", handleDictionary)
+
 	log.Println("Сервер запущен на http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -195,6 +197,23 @@ var (
 	cacheLoaded bool
 )
 
+var kanjiDict map[string]KanjiDictEntry
+
+type KanjiDictEntry struct {
+	Onyomi      []string   `json:"onyomi"`
+	Kunyomi     []string   `json:"kunyomi"`
+	Meaning     string     `json:"meaning"`
+	JLPT        string     `json:"jlpt"`
+	StrokeCount int        `json:"stroke_count"`
+	Words       []WordInfo `json:"words"`
+}
+
+type WordInfo struct {
+	Word    string `json:"word"`
+	Reading string `json:"reading"`
+	Meaning string `json:"meaning"`
+}
+
 func loadCache() {
 	if cacheLoaded {
 		return
@@ -204,6 +223,11 @@ func loadCache() {
 	jlptData, err := os.ReadFile(filepath.Join("model", "jlpt_levels.json"))
 	if err == nil {
 		json.Unmarshal(jlptData, &jlptLevels)
+	}
+
+	dictData, err := os.ReadFile(filepath.Join("model", "kanji_dict.json"))
+	if err == nil {
+		json.Unmarshal(dictData, &kanjiDict)
 	}
 
 	// Загружаем список иероглифов из SVG
@@ -267,4 +291,23 @@ func handleKanjiList(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(filtered)
+}
+
+func handleDictionary(w http.ResponseWriter, r *http.Request) {
+	kanji := strings.TrimPrefix(r.URL.Path, "/api/dictionary/")
+	if kanji == "" {
+		http.Error(w, "Не указан иероглиф", http.StatusBadRequest)
+		return
+	}
+
+	loadCache()
+
+	entry, ok := kanjiDict[kanji]
+	if !ok {
+		http.Error(w, "Иероглиф не найден", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entry)
 }
