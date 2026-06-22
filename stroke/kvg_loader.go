@@ -98,6 +98,30 @@ func LoadKanjiVG(filePath string, kanjiChar string) (*KanjiTemplate, error) {
 	}, nil
 }
 
+// ExtractKanjiChar извлекает символ иероглифа из SVG-файла
+func ExtractKanjiChar(filePath string) (string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("не удалось прочитать файл %s: %w", filePath, err)
+	}
+
+	// Ищем kvg:element в XML
+	// Простой способ — найти строку с kvg:element="X"
+	content := string(data)
+	idx := strings.Index(content, "kvg:element=\"")
+	if idx == -1 {
+		return filePath, nil // fallback к имени файла
+	}
+
+	start := idx + len("kvg:element=\"")
+	end := strings.Index(content[start:], "\"")
+	if end == -1 {
+		return filePath, nil
+	}
+
+	return content[start : start+end], nil
+}
+
 // normalizeStrokeDirection разворачивает черту, если она идёт в неправильном направлении.
 // Японские черты всегда пишутся сверху вниз и слева направо.
 func normalizeStrokeDirection(s *Stroke) {
