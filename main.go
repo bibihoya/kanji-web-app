@@ -44,9 +44,15 @@ type StrokeResultJSON struct {
 }
 
 func main() {
-	// Статические файлы (index.html, CSS, JS)
+	// Статические файлы (practice.html, CSS, JS)
 	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/", fs)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.ServeFile(w, r, filepath.Join("static", "index.html"))
+			return
+		}
+		fs.ServeHTTP(w, r)
+	})
 
 	// API для проверки черт
 	http.HandleFunc("/api/check", handleCheck)
@@ -61,6 +67,8 @@ func main() {
 	http.HandleFunc("/api/dictionary/", handleDictionary)
 
 	http.HandleFunc("/api/quiz", handleQuiz)
+
+	http.HandleFunc("/api/lessons", handleLessons)
 
 	log.Println("Сервер запущен на http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -476,4 +484,14 @@ func handleQuiz(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Неизвестный тип задания. Используйте: reading, meaning, character", http.StatusBadRequest)
 	}
+}
+
+func handleLessons(w http.ResponseWriter, r *http.Request) {
+	lessonData, err := os.ReadFile(filepath.Join("model", "lessons.json"))
+	if err != nil {
+		http.Error(w, "Уроки не найдены", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(lessonData)
 }

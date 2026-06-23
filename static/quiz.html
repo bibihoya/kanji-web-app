@@ -201,9 +201,11 @@
 <h1>📝 Задания по кандзи</h1>
 
 <div class="nav">
-    <a href="/">🖌 Практика</a>
+    <a href="/">🏠 Главная</a>
+    <a href="/practice.html">🖌 Практика</a>
     <a href="/dictionary.html">📚 Словарь</a>
-    <a href="/quiz.html" class="active">📝 Задания</a>
+    <a href="/quiz.html">📝 Задания</a>
+    <a href="/lessons.html">📖 Уроки</a>
 </div>
 
 <!-- Выбор типа задания -->
@@ -358,6 +360,20 @@
                 btn.classList.add('wrong');
             }
         });
+
+        const feedbackDiv = document.getElementById('feedbackText');
+        if (currentQuestion.kanji) {
+            fetch(`/api/dictionary/${encodeURIComponent(currentQuestion.kanji)}`)
+                .then(r => r.json())
+                .then(data => {
+                    const parts = [];
+                    if (data.onyomi?.length > 0) parts.push(`Он: ${data.onyomi.join(', ')}`);
+                    if (data.kunyomi?.length > 0) parts.push(`Кун: ${data.kunyomi.join(', ')}`);
+                    if (data.meaning) parts.push(data.meaning);
+                    feedbackDiv.textContent += ` | ${parts.join(' · ')}`;
+                })
+                .catch(() => {});
+        }
 
         if (isCorrect) {
             correctCount++;
