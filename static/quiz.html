@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Задания | Kanji Practice</title>
+    <style>
+        :root {
+            --primary: #4A90D9;
+            --success: #4CAF50;
+            --danger: #F44336;
+            --warning: #FF9800;
+            --light: #f5f5f5;
+            --border: #ddd;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fafafa;
+            color: #333;
+        }
+        h1 { text-align: center; margin-bottom: 20px; color: var(--primary); }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .nav a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .nav a:hover { background: #e3f0ff; }
+        .nav a.active { background: var(--primary); color: white; }
+
+        .quiz-type-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .quiz-type-btn {
+            padding: 10px 20px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .quiz-type-btn:hover { border-color: var(--primary); }
+        .quiz-type-btn.active {
+            border-color: var(--primary);
+            background: #e3f0ff;
+            font-weight: 600;
+        }
+
+        .level-selector {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .level-btn {
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .level-btn:hover { border-color: var(--primary); }
+        .level-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .quiz-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .kanji-display {
+            font-size: 100px;
+            margin: 20px 0;
+            color: #333;
+            line-height: 1.2;
+        }
+
+        .question-text {
+            font-size: 22px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+        }
+
+        .option-btn {
+            padding: 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .option-btn:hover {
+            border-color: var(--primary);
+            background: #f5f8ff;
+            transform: translateY(-1px);
+        }
+        .option-btn.correct {
+            border-color: var(--success);
+            background: #e8f5e9;
+            animation: pulse 0.5s;
+        }
+        .option-btn.wrong {
+            border-color: var(--danger);
+            background: #ffebee;
+            animation: shake 0.5s;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .score-display {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .score-item {
+            text-align: center;
+        }
+        .score-value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .score-value.good { color: var(--success); }
+        .score-value.wrong { color: var(--danger); }
+
+        .next-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            display: none;
+        }
+        .next-btn:hover { background: #3a7bc8; }
+
+        .feedback-text {
+            margin-top: 15px;
+            font-size: 16px;
+            min-height: 24px;
+        }
+        .feedback-text.correct { color: var(--success); }
+        .feedback-text.wrong { color: var(--danger); }
+    </style>
+</head>
+<body>
+<h1>📝 Задания по кандзи</h1>
+
+<div class="nav">
+    <a href="/">🖌 Практика</a>
+    <a href="/dictionary.html">📚 Словарь</a>
+    <a href="/quiz.html" class="active">📝 Задания</a>
+</div>
+
+<!-- Выбор типа задания -->
+<div class="quiz-type-selector">
+    <button class="quiz-type-btn active" data-type="reading" onclick="setQuizType('reading', this)">
+        📖 Угадай чтение
+    </button>
+    <button class="quiz-type-btn" data-type="meaning" onclick="setQuizType('meaning', this)">
+        💡 Угадай значение
+    </button>
+    <button class="quiz-type-btn" data-type="character" onclick="setQuizType('character', this)">
+        🈳 Выбери иероглиф
+    </button>
+</div>
+
+<!-- Выбор уровня -->
+<div class="level-selector">
+    <button class="level-btn active" data-level="" onclick="setLevel('', this)">Все</button>
+    <button class="level-btn" data-level="N5" onclick="setLevel('N5', this)">N5</button>
+    <button class="level-btn" data-level="N4" onclick="setLevel('N4', this)">N4</button>
+    <button class="level-btn" data-level="N3" onclick="setLevel('N3', this)">N3</button>
+    <button class="level-btn" data-level="N2" onclick="setLevel('N2', this)">N2</button>
+    <button class="level-btn" data-level="N1" onclick="setLevel('N1', this)">N1</button>
+</div>
+
+<!-- Счёт -->
+<div class="score-display">
+    <div class="score-item">
+        <div class="score-value good" id="correctCount">0</div>
+        <div>Правильно</div>
+    </div>
+    <div class="score-item">
+        <div class="score-value" style="color: var(--primary);" id="totalCount">0</div>
+        <div>Всего</div>
+    </div>
+    <div class="score-item">
+        <div class="score-value wrong" id="wrongCount">0</div>
+        <div>Ошибок</div>
+    </div>
+</div>
+
+<!-- Карточка задания -->
+<div class="quiz-card" id="quizCard">
+    <div class="question-text" id="questionText">Загрузка...</div>
+    <div class="kanji-display" id="kanjiDisplay"></div>
+    <div class="options-grid" id="optionsGrid"></div>
+    <div class="feedback-text" id="feedbackText"></div>
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Следующий вопрос →</button>
+</div>
+
+<script>
+    let quizType = 'reading';
+    let currentLevel = '';
+    let correctCount = 0;
+    let totalCount = 0;
+    let wrongCount = 0;
+    let currentQuestion = null;
+    let answered = false;
+
+    function setQuizType(type, btn) {
+        quizType = type;
+        document.querySelectorAll('.quiz-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        resetScore();
+        loadQuestion();
+    }
+
+    function setLevel(level, btn) {
+        currentLevel = level;
+        document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        resetScore();
+        loadQuestion();
+    }
+
+    function resetScore() {
+        correctCount = 0;
+        totalCount = 0;
+        wrongCount = 0;
+        updateScore();
+    }
+
+    function updateScore() {
+        document.getElementById('correctCount').textContent = correctCount;
+        document.getElementById('totalCount').textContent = totalCount;
+        document.getElementById('wrongCount').textContent = wrongCount;
+    }
+
+    async function loadQuestion() {
+        answered = false;
+        document.getElementById('nextBtn').style.display = 'none';
+        document.getElementById('feedbackText').textContent = '';
+        document.getElementById('feedbackText').className = 'feedback-text';
+
+        try {
+            const params = new URLSearchParams({ type: quizType });
+            if (currentLevel) params.append('level', currentLevel);
+
+            const resp = await fetch(`/api/quiz?${params}`);
+            if (!resp.ok) throw new Error('Нет доступных заданий');
+
+            currentQuestion = await resp.json();
+            displayQuestion();
+        } catch (err) {
+            document.getElementById('questionText').textContent = 'Ошибка загрузки задания';
+            document.getElementById('kanjiDisplay').textContent = '';
+            document.getElementById('optionsGrid').innerHTML = '';
+            console.error(err);
+        }
+    }
+
+    function displayQuestion() {
+        const q = currentQuestion;
+        document.getElementById('kanjiDisplay').textContent = q.kanji;
+
+        if (quizType === 'reading') {
+            document.getElementById('questionText').textContent = 'Выберите правильное чтение:';
+        } else if (quizType === 'meaning') {
+            document.getElementById('questionText').textContent = 'Выберите правильное значение:';
+        } else if (quizType === 'character') {
+            document.getElementById('questionText').textContent = `Выберите иероглиф для: "${q.prompt}"`;
+            document.getElementById('kanjiDisplay').textContent = '';
+        }
+
+        const grid = document.getElementById('optionsGrid');
+        grid.innerHTML = '';
+
+        q.options.forEach((opt, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = opt;
+            btn.onclick = () => checkAnswer(i);
+            grid.appendChild(btn);
+        });
+    }
+
+    async function checkAnswer(index) {
+        if (answered) return;
+        answered = true;
+
+        totalCount++;
+        const isCorrect = index === currentQuestion.correctIndex;
+
+        // Подсветка правильного и неправильного ответов
+        const buttons = document.querySelectorAll('.option-btn');
+        buttons.forEach((btn, i) => {
+            btn.disabled = true;
+            if (i === currentQuestion.correctIndex) {
+                btn.classList.add('correct');
+            }
+            if (i === index && !isCorrect) {
+                btn.classList.add('wrong');
+            }
+        });
+
+        if (isCorrect) {
+            correctCount++;
+            document.getElementById('feedbackText').textContent = '✅ Правильно!';
+            document.getElementById('feedbackText').className = 'feedback-text correct';
+        } else {
+            wrongCount++;
+            document.getElementById('feedbackText').textContent = '❌ Неправильно!';
+            document.getElementById('feedbackText').className = 'feedback-text wrong';
+        }
+
+        updateScore();
+        document.getElementById('nextBtn').style.display = 'inline-block';
+    }
+
+    function nextQuestion() {
+        loadQuestion();
+    }
+
+    // Загрузка первого вопроса при старте
+    loadQuestion();
+
+    // Горячие клавиши
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && answered) {
+            nextQuestion();
+        }
+    });
+</script>
+</body>
+</html>

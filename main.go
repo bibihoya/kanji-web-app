@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -58,6 +59,8 @@ func main() {
 	http.HandleFunc("/api/check-stroke", handleCheckStroke)
 
 	http.HandleFunc("/api/dictionary/", handleDictionary)
+
+	http.HandleFunc("/api/quiz", handleQuiz)
 
 	log.Println("Сервер запущен на http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -310,4 +313,167 @@ func handleDictionary(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(entry)
+}
+
+// Структура для вопроса
+type QuizQuestion struct {
+	Kanji        string   `json:"kanji"`
+	Prompt       string   `json:"prompt,omitempty"`
+	Options      []string `json:"options"`
+	CorrectIndex int      `json:"correctIndex"`
+}
+
+func handleQuiz(w http.ResponseWriter, r *http.Request) {
+	loadCache()
+
+	quizType := r.URL.Query().Get("type")
+	level := r.URL.Query().Get("level")
+
+	// Собираем доступные иероглифы
+	var available []KanjiInfo
+	for _, k := range kanjiCache {
+		if level == "" || k.Level == level {
+			if _, ok := kanjiDict[k.Character]; ok {
+				available = append(available, k)
+			}
+		}
+	}
+
+	if len(available) < 4 {
+		http.Error(w, "Недостаточно иероглифов для этого уровня", http.StatusNotFound)
+		return
+	}
+
+	// Выбираем правильный ответ
+	correctIdx := rand.Intn(len(available))
+	correct := available[correctIdx]
+	correctData := kanjiDict[correct.Character]
+
+	// Собираем 3 неправильных варианта
+	wrongIndices := make([]int, 0, 3)
+	used := map[int]bool{correctIdx: true}
+	for len(wrongIndices) < 3 {
+		idx := rand.Intn(len(available))
+		if !used[idx] {
+			used[idx] = true
+			wrongIndices = append(wrongIndices, idx)
+		}
+	}
+
+	switch quizType {
+	case "reading":
+		// Собираем все чтения правильного иероглифа
+		allReadings := append([]string{}, correctData.Onyomi...)
+		allReadings = append(allReadings, correctData.Kunyomi...)
+		if len(allReadings) == 0 {
+			http.Error(w, "Нет чтений для выбранного иероглифа", http.StatusNotFound)
+			return
+		}
+		correctReading := allReadings[rand.Intn(len(allReadings))]
+
+		// Собираем неправильные чтения из других иероглифов
+		wrongReadings := make([]string, 0, 3)
+		for _, idx := range wrongIndices {
+			data := kanjiDict[available[idx].Character]
+			pool := append([]string{}, data.Onyomi...)
+			pool = append(pool, data.Kunyomi...)
+			if len(pool) > 0 {
+				wrongReadings = append(wrongReadings, pool[rand.Intn(len(pool))])
+			}
+		}
+
+		// Формируем варианты и перемешиваем
+		options := append([]string{correctReading}, wrongReadings...)
+		correctOptionIndex := 0
+		rand.Shuffle(len(options), func(i, j int) {
+			options[i], options[j] = options[j], options[i]
+		})
+		for i, opt := range options {
+			if opt == correctReading {
+				correctOptionIndex = i
+			}
+		}
+
+		question := QuizQuestion{
+			Kanji:        correct.Character,
+			Options:      options,
+			CorrectIndex: correctOptionIndex,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(question)
+
+	case "meaning":
+		correctMeaning := correctData.Meaning
+		if correctMeaning == "" {
+			http.Error(w, "Нет значения для выбранного иероглифа", http.StatusNotFound)
+			return
+		}
+
+		// Собираем неправильные значения
+		wrongMeanings := make([]string, 0, 3)
+		for _, idx := range wrongIndices {
+			data := kanjiDict[available[idx].Character]
+			if data.Meaning != "" && data.Meaning != correctMeaning {
+				wrongMeanings = append(wrongMeanings, data.Meaning)
+			}
+		}
+		// Если не хватило уникальных значений, добавляем заглушки
+		for len(wrongMeanings) < 3 {
+			wrongMeanings = append(wrongMeanings, "—")
+		}
+
+		options := append([]string{correctMeaning}, wrongMeanings[:3]...)
+		correctOptionIndex := 0
+		rand.Shuffle(len(options), func(i, j int) {
+			options[i], options[j] = options[j], options[i]
+		})
+		for i, opt := range options {
+			if opt == correctMeaning {
+				correctOptionIndex = i
+			}
+		}
+
+		question := QuizQuestion{
+			Kanji:        correct.Character,
+			Options:      options,
+			CorrectIndex: correctOptionIndex,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(question)
+
+	case "character":
+		// Prompt — что показываем вместо иероглифа
+		var prompt string
+		if len(correctData.Onyomi) > 0 {
+			prompt = correctData.Onyomi[0]
+		} else if len(correctData.Kunyomi) > 0 {
+			prompt = correctData.Kunyomi[0]
+		} else {
+			prompt = correctData.Meaning
+		}
+
+		// Формируем 4 варианта иероглифов
+		options := make([]string, 4)
+		correctOptionIndex := rand.Intn(4)
+		options[correctOptionIndex] = correct.Character
+
+		for i, j := 0, 0; i < 4 && j < len(wrongIndices); i++ {
+			if i != correctOptionIndex {
+				options[i] = available[wrongIndices[j]].Character
+				j++
+			}
+		}
+
+		question := QuizQuestion{
+			Kanji:        correct.Character,
+			Prompt:       prompt,
+			Options:      options,
+			CorrectIndex: correctOptionIndex,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(question)
+
+	default:
+		http.Error(w, "Неизвестный тип задания. Используйте: reading, meaning, character", http.StatusBadRequest)
+	}
 }
