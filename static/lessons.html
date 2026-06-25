@@ -6,24 +6,18 @@
     <title>Уроки | Kanji Practice</title>
     <style>
         :root {
-            --primary: #4A90D9;
-            --success: #4CAF50;
-            --warning: #FF9800;
-            --danger: #F44336;
-            --gray: #999;
-            --border: #ddd;
+            --primary: #4A90D9; --success: #4CAF50; --warning: #FF9800;
+            --danger: #F44336; --gray: #999; --border: #ddd;
             --shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #fafafa;
-            color: #333;
+            max-width: 800px; margin: 0 auto; padding: 20px;
+            background: #fafafa; color: #333;
         }
         h1 { text-align: center; color: var(--primary); margin-bottom: 10px; }
+        h2 { text-align: center; color: var(--primary); margin-bottom: 5px; }
         .nav {
             display: flex; justify-content: center; gap: 12px; margin-bottom: 25px; flex-wrap: wrap;
         }
@@ -34,15 +28,14 @@
         .nav a:hover { background: #e3f0ff; }
         .nav a.active { background: var(--primary); color: white; }
 
+        /* Список уроков */
         .lesson-list { display: flex; flex-direction: column; gap: 12px; }
         .lesson-card {
             background: white; border-radius: 14px; padding: 22px 25px;
             box-shadow: var(--shadow); cursor: pointer; transition: all 0.2s;
             border: 2px solid transparent;
         }
-        .lesson-card:hover {
-            border-color: var(--primary); transform: translateY(-2px);
-        }
+        .lesson-card:hover { border-color: var(--primary); transform: translateY(-2px); }
         .lesson-card.completed { border-left: 5px solid var(--success); }
         .lesson-card h3 { margin-bottom: 5px; }
         .lesson-card p { font-size: 13px; color: var(--gray); }
@@ -57,6 +50,7 @@
             border-radius: 5px; font-size: 15px; font-weight: 500;
         }
 
+        /* Экран урока */
         .lesson-view { display: none; }
         .lesson-view.active { display: block; }
 
@@ -65,47 +59,59 @@
         .progress-bar { height: 10px; background: #e9ecef; border-radius: 5px; overflow: hidden; }
         .progress-fill { height: 100%; background: var(--success); transition: width 0.4s; border-radius: 5px; }
 
-        .step-card {
-            background: white; border: 2px solid var(--border); border-radius: 12px;
-            padding: 20px; margin-bottom: 15px; transition: all 0.3s;
+        .step-screen {
+            background: white; border-radius: 16px; padding: 30px;
+            box-shadow: var(--shadow); text-align: center; min-height: 350px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .step-card.current { border-color: var(--primary); background: #f8faff; }
-        .step-card.completed { border-color: var(--success); opacity: 0.65; }
-        .step-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
-        .step-card.completed .step-title { color: var(--success); }
+        .step-title {
+            font-size: 20px; font-weight: 600; color: var(--primary); margin-bottom: 10px;
+        }
+        .step-subtitle { font-size: 14px; color: var(--gray); margin-bottom: 20px; }
+
+        .dict-info {
+            background: #f0f4ff; border-radius: 8px; padding: 12px;
+            margin: 10px 0; font-size: 14px; display: inline-block;
+        }
+        .dict-info span { margin: 0 8px; }
+
+        .mini-canvas {
+            border: 2px solid var(--border); border-radius: 8px;
+            touch-action: none; background: #fff; cursor: crosshair;
+            display: block; margin: 10px auto;
+        }
 
         .btn {
             padding: 10px 20px; border: none; border-radius: 8px;
-            font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+            font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; margin: 5px;
         }
         .btn-primary { background: var(--primary); color: white; }
         .btn-primary:hover { background: #3a7bc8; }
         .btn-success { background: var(--success); color: white; }
         .btn-success:hover { background: #3d9142; }
         .btn-back { background: #e9ecef; color: #333; margin-bottom: 15px; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-skip { background: #eee; color: #666; font-size: 12px; }
 
-        .mini-canvas {
-            border: 2px solid var(--border); border-radius: 8px;
-            touch-action: none; background: #fff; cursor: crosshair;
-            display: block; margin: 10px 0;
-        }
-        .quiz-options { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .quiz-options { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 15px; }
         .quiz-options button {
-            padding: 10px 18px; border: 2px solid var(--border); border-radius: 8px;
-            background: white; cursor: pointer; font-size: 15px; transition: all 0.2s;
+            padding: 12px 20px; border: 2px solid var(--border); border-radius: 10px;
+            background: white; cursor: pointer; font-size: 16px; transition: all 0.2s;
+            min-width: 120px;
         }
         .quiz-options button:hover { border-color: var(--primary); }
         .quiz-options button.correct { border-color: var(--success); background: #e8f5e9; font-weight: 600; }
         .quiz-options button.wrong { border-color: var(--danger); background: #ffebee; }
         .quiz-options button:disabled { opacity: 0.7; cursor: not-allowed; }
-        .quiz-feedback { margin-top: 8px; font-weight: 600; font-size: 14px; }
+        .quiz-feedback { margin-top: 12px; font-weight: 600; font-size: 16px; min-height: 24px; }
 
-        .dict-info {
-            background: #f0f4ff; border-radius: 8px; padding: 12px;
-            margin: 10px 0; font-size: 14px;
+        .lesson-complete {
+            text-align: center; padding: 40px;
         }
-        .dict-info span { margin-right: 12px; }
+        .lesson-complete .icon { font-size: 80px; }
+        .lesson-complete h2 { color: var(--success); margin: 20px 0; }
+        .lesson-complete p { color: var(--gray); margin-bottom: 20px; font-size: 16px; }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -126,14 +132,14 @@
     <h2 id="lessonTitle"></h2>
     <div class="progress-container">
         <div class="progress-label">
-            <span>Прогресс урока</span>
+            <span id="progressLabel">Прогресс урока</span>
             <span id="progressText">0/0</span>
         </div>
         <div class="progress-bar">
             <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
         </div>
     </div>
-    <div id="stepContainer"></div>
+    <div id="stepScreen" class="step-screen"></div>
 </div>
 
 <script>
@@ -141,8 +147,12 @@
     let currentLessonId = null;
     let completedSteps = {};
     let currentStepIndex = 0;
-    let kanjiDictCache = {}; // Кеш словаря
+    let miniPoints = [];
+    let miniCtx = null;
+    let miniCanvas = null;
+    let svgPaths = [];
 
+    // Загрузка уроков
     fetch('/api/lessons')
         .then(r => r.json())
         .then(data => {
@@ -197,12 +207,20 @@
         document.getElementById('lessonView').classList.add('active');
         document.getElementById('lessonTitle').textContent = `Урок ${lessonId}: ${lesson.title}`;
         if (!completedSteps[lessonId]) completedSteps[lessonId] = new Set();
+
+        // Находим первый незавершённый шаг
         currentStepIndex = 0;
         for (let i = 0; i < lesson.steps.length; i++) {
             if (!completedSteps[lessonId].has(i)) { currentStepIndex = i; break; }
         }
-        renderSteps();
-        updateProgress();
+
+        if (currentStepIndex >= lesson.steps.length) {
+            // Все шаги завершены
+            showLessonComplete();
+        } else {
+            updateProgress();
+            renderCurrentStep();
+        }
     }
 
     function updateProgress() {
@@ -214,96 +232,79 @@
         document.getElementById('progressFill').style.width = `${percent}%`;
     }
 
-    function renderSteps() {
+    async function renderCurrentStep() {
         const lesson = lessons[currentLessonId];
-        const container = document.getElementById('stepContainer');
-        container.innerHTML = '';
-        lesson.steps.forEach((step, i) => {
-            const isCompleted = completedSteps[currentLessonId].has(i);
-            const isCurrent = i === currentStepIndex && !isCompleted;
-            const card = document.createElement('div');
-            card.className = `step-card${isCurrent ? ' current' : ''}${isCompleted ? ' completed' : ''}`;
-            card.id = `step-${i}`;
-            let html = `<div class="step-title">Шаг ${i+1}: ${step.title}</div>`;
-            if (isCompleted) {
-                html += '<p style="color: var(--success);">✅ Выполнено</p>';
-            } else if (isCurrent) {
-                html += renderStepContent(step, i);
-            } else {
-                html += '<p style="color: var(--gray);">⏳ Ожидание</p>';
+        const step = lesson.steps[currentStepIndex];
+        const screen = document.getElementById('stepScreen');
+
+        updateProgress();
+
+        let html = '';
+        html += `<div class="step-title">Шаг ${currentStepIndex+1} из ${lesson.steps.length}</div>`;
+        html += `<div class="step-subtitle">${step.title}</div>`;
+
+        if (step.type === 'practice') {
+            // Загружаем информацию о кандзи
+            let dictHTML = '';
+            try {
+                const resp = await fetch(`/api/dictionary/${encodeURIComponent(step.kanji)}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const parts = [];
+                    if (data.onyomi?.length) parts.push('Он: ' + data.onyomi.join(', '));
+                    if (data.kunyomi?.length) parts.push('Кун: ' + data.kunyomi.join(', '));
+                    if (data.meaning) parts.push(data.meaning);
+                    dictHTML = `<div class="dict-info">${parts.join(' · ')}</div>`;
+                }
+            } catch(e) {}
+
+            html += dictHTML;
+            html += `<canvas id="miniCanvas" class="mini-canvas" width="300" height="300"></canvas>`;
+            html += `<div class="btn-group">`;
+            html += `<button class="btn btn-primary" onclick="clearCanvas()">🗑 Очистить</button>`;
+            html += `<button class="btn btn-success" onclick="checkPractice()">✓ Проверить</button>`;
+            html += `<button class="btn btn-skip" onclick="skipStep()">Пропустить</button>`;
+            html += `</div>`;
+            html += `<div id="stepFeedback" style="margin-top: 10px; font-weight: 600; min-height: 24px;"></div>`;
+
+            screen.innerHTML = html;
+
+            // Инициализируем canvas
+            setTimeout(() => initPracticeCanvas(step.kanji), 100);
+
+        } else if (step.type.startsWith('quiz_')) {
+            // Определяем тип викторины
+            let quizType = 'reading';
+            if (step.type === 'quiz_meaning') quizType = 'meaning';
+            else if (step.type === 'quiz_character') quizType = 'character';
+            else if (step.type === 'quiz_mixed') {
+                const types = ['reading', 'meaning', 'character'];
+                quizType = types[Math.floor(Math.random() * 3)];
             }
-            card.innerHTML = html;
-            container.appendChild(card);
-        });
 
-        // Инициализируем активный шаг
-        if (currentStepIndex < lesson.steps.length) {
-            const step = lesson.steps[currentStepIndex];
-            if (step.type === 'practice') initPracticeCanvas(currentStepIndex);
-            if (step.type.startsWith('quiz_')) initMiniQuiz(currentStepIndex);
-        }
-    }
+            html += `<div id="quizArea">Загрузка вопроса...</div>`;
+            html += `<div id="stepFeedback" style="margin-top: 10px; font-weight: 600; min-height: 24px;"></div>`;
+            html += `<button class="btn btn-skip" onclick="skipStep()" style="margin-top: 15px;">Пропустить</button>`;
 
-    function renderStepContent(step, index) {
-        switch (step.type) {
-            case 'practice':
-                return `
-                        <div class="dict-info" id="dict-${index}">Загрузка...</div>
-                        <canvas id="miniCanvas-${index}" class="mini-canvas" width="300" height="300"></canvas>
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <button class="btn btn-primary" onclick="clearMiniCanvas(${index})">🗑 Очистить</button>
-                            <button class="btn btn-success" onclick="checkMiniPractice(${index})">✓ Проверить</button>
-                            <button class="btn" onclick="skipStep(${index})" style="background:#eee;">Пропустить →</button>
-                        </div>
-                        <div id="feedback-${index}" style="margin-top: 8px; font-weight: 600;"></div>
-                    `;
-            case 'quiz_reading':
-            case 'quiz_meaning':
-            case 'quiz_character':
-            case 'quiz_mixed':
-                return `
-                        <div id="quizContainer-${index}">Загрузка вопроса...</div>
-                        <button class="btn" onclick="skipStep(${index})" style="background:#eee; margin-top: 10px;">Пропустить →</button>
-                    `;
-            default:
-                return `<button class="btn btn-success" onclick="completeStep(${index})">✓ Отметить как выполненное</button>`;
+            screen.innerHTML = html;
+
+            // Загружаем вопрос
+            setTimeout(() => loadQuizQuestion(quizType, step), 100);
         }
     }
 
     // ========== ПРАКТИКА ПИСЬМА ==========
-    let miniDrawing = {};
-    let miniPoints = [];
-
-    async function initPracticeCanvas(index) {
-        const step = lessons[currentLessonId].steps[index];
-        const kanji = step.kanji;
-
-        // Загружаем инфо о кандзи
-        const dictDiv = document.getElementById(`dict-${index}`);
-        try {
-            const resp = await fetch(`/api/dictionary/${encodeURIComponent(kanji)}`);
-            if (resp.ok) {
-                const data = await resp.json();
-                const parts = [];
-                if (data.onyomi?.length) parts.push('Он: ' + data.onyomi.join(', '));
-                if (data.kunyomi?.length) parts.push('Кун: ' + data.kunyomi.join(', '));
-                if (data.meaning) parts.push('Знач: ' + data.meaning);
-                dictDiv.innerHTML = parts.join(' · ');
-            }
-        } catch(e) { dictDiv.textContent = ''; }
-
-        const canvas = document.getElementById(`miniCanvas-${index}`);
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        miniDrawing[index] = { ctx, canvas, points: [] };
+    async function initPracticeCanvas(kanji) {
+        miniCanvas = document.getElementById('miniCanvas');
+        if (!miniCanvas) return;
+        miniCtx = miniCanvas.getContext('2d');
         miniPoints = [];
 
         // Загружаем эталон
-        let svgPaths = [];
+        svgPaths = [];
         try {
-            // Находим ID иероглифа из глобального списка
-            const kanjiResp = await fetch('/api/kanji');
-            const all = await kanjiResp.json();
+            const resp = await fetch('/api/kanji');
+            const all = await resp.json();
             const found = all.find(k => k.character === kanji);
             if (found) {
                 const svgResp = await fetch(`/api/template/${found.id}`);
@@ -314,100 +315,107 @@
             }
         } catch(e) {}
 
-        function redrawMini() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Эталон
-            if (svgPaths.length > 0) {
-                ctx.save();
-                ctx.globalAlpha = 0.2;
-                ctx.strokeStyle = '#0066cc';
-                ctx.lineWidth = 2;
-                ctx.scale(canvas.width / 109, canvas.height / 109);
-                svgPaths.forEach(d => {
-                    const p = new Path2D(d);
-                    ctx.stroke(p);
-                });
-                ctx.restore();
-            }
-            // Текущая черта
-            if (miniPoints.length > 1) {
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.moveTo(miniPoints[0].x * canvas.width / 109, miniPoints[0].y * canvas.height / 109);
-                for (let i = 1; i < miniPoints.length; i++) {
-                    ctx.lineTo(miniPoints[i].x * canvas.width / 109, miniPoints[i].y * canvas.height / 109);
-                }
-                ctx.stroke();
-            }
-        }
+        redrawCanvas();
 
-        canvas.onmousedown = e => {
-            const rect = canvas.getBoundingClientRect();
+        miniCanvas.onmousedown = e => {
+            const rect = miniCanvas.getBoundingClientRect();
             miniPoints = [];
             miniPoints.push({
-                x: (e.clientX - rect.left) * 109 / canvas.width,
-                y: (e.clientY - rect.top) * 109 / canvas.height
+                x: (e.clientX - rect.left) * 109 / miniCanvas.width,
+                y: (e.clientY - rect.top) * 109 / miniCanvas.height
             });
-            canvas.onmousemove = e2 => {
-                const r = canvas.getBoundingClientRect();
+            miniCanvas.onmousemove = e2 => {
+                const r = miniCanvas.getBoundingClientRect();
                 miniPoints.push({
-                    x: (e2.clientX - r.left) * 109 / canvas.width,
-                    y: (e2.clientY - r.top) * 109 / canvas.height
+                    x: (e2.clientX - r.left) * 109 / miniCanvas.width,
+                    y: (e2.clientY - r.top) * 109 / miniCanvas.height
                 });
-                redrawMini();
+                redrawCanvas();
             };
         };
-        canvas.onmouseup = () => { canvas.onmousemove = null; redrawMini(); };
-        canvas.onmouseleave = () => { canvas.onmousemove = null; redrawMini(); };
+        miniCanvas.onmouseup = () => { miniCanvas.onmousemove = null; };
+        miniCanvas.onmouseleave = () => { miniCanvas.onmousemove = null; };
 
-        // Touch
-        canvas.ontouchstart = e => {
+        miniCanvas.ontouchstart = e => {
             e.preventDefault();
-            const rect = canvas.getBoundingClientRect();
+            const rect = miniCanvas.getBoundingClientRect();
             miniPoints = [];
             miniPoints.push({
-                x: (e.touches[0].clientX - rect.left) * 109 / canvas.width,
-                y: (e.touches[0].clientY - rect.top) * 109 / canvas.height
+                x: (e.touches[0].clientX - rect.left) * 109 / miniCanvas.width,
+                y: (e.touches[0].clientY - rect.top) * 109 / miniCanvas.height
             });
-            canvas.ontouchmove = e2 => {
+            miniCanvas.ontouchmove = e2 => {
                 e2.preventDefault();
-                const r = canvas.getBoundingClientRect();
+                const r = miniCanvas.getBoundingClientRect();
                 miniPoints.push({
-                    x: (e2.touches[0].clientX - r.left) * 109 / canvas.width,
-                    y: (e2.touches[0].clientY - r.top) * 109 / canvas.height
+                    x: (e2.touches[0].clientX - r.left) * 109 / miniCanvas.width,
+                    y: (e2.touches[0].clientY - r.top) * 109 / miniCanvas.height
                 });
-                redrawMini();
+                redrawCanvas();
             };
         };
-        canvas.ontouchend = () => { canvas.ontouchmove = null; redrawMini(); };
-
-        redrawMini();
+        miniCanvas.ontouchend = () => { miniCanvas.ontouchmove = null; };
     }
 
-    function clearMiniCanvas(index) {
+    function redrawCanvas() {
+        if (!miniCtx || !miniCanvas) return;
+        miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+        // Эталон
+        if (svgPaths.length > 0) {
+            miniCtx.save();
+            miniCtx.globalAlpha = 0.2;
+            miniCtx.strokeStyle = '#0066cc';
+            miniCtx.lineWidth = 2;
+            miniCtx.scale(miniCanvas.width / 109, miniCanvas.height / 109);
+            svgPaths.forEach(d => {
+                const p = new Path2D(d);
+                miniCtx.stroke(p);
+            });
+            miniCtx.restore();
+        }
+        // Текущая черта
+        if (miniPoints.length > 1) {
+            miniCtx.strokeStyle = '#000';
+            miniCtx.lineWidth = 4;
+            miniCtx.beginPath();
+            miniCtx.moveTo(miniPoints[0].x * miniCanvas.width / 109, miniPoints[0].y * miniCanvas.height / 109);
+            for (let i = 1; i < miniPoints.length; i++) {
+                miniCtx.lineTo(miniPoints[i].x * miniCanvas.width / 109, miniPoints[i].y * miniCanvas.height / 109);
+            }
+            miniCtx.stroke();
+        }
+    }
+
+    function clearCanvas() {
         miniPoints = [];
-        const d = miniDrawing[index];
-        if (d) d.ctx.clearRect(0, 0, d.canvas.width, d.canvas.height);
+        redrawCanvas();
     }
 
-    async function checkMiniPractice(index) {
-        const step = lessons[currentLessonId].steps[index];
+    async function checkPractice() {
+        const step = lessons[currentLessonId].steps[currentStepIndex];
         const kanji = step.kanji;
+
+        if (miniPoints.length < 4) {
+            document.getElementById('stepFeedback').innerHTML = '<span style="color: var(--danger);">Нарисуйте черту</span>';
+            return;
+        }
 
         // Находим ID иероглифа
         const resp = await fetch('/api/kanji');
         const all = await resp.json();
         const found = all.find(k => k.character === kanji);
         if (!found) {
-            document.getElementById(`feedback-${index}`).innerHTML = '<span style="color:red;">Иероглиф не найден</span>';
+            document.getElementById('stepFeedback').innerHTML = '<span style="color: var(--danger);">Иероглиф не найден</span>';
             return;
         }
+
+        // Сглаживаем точки
+        const smoothed = smoothPoints(miniPoints, 3);
 
         const payload = {
             kanji: found.id,
             strokeIndex: 0,
-            points: miniPoints
+            points: smoothed
         };
 
         try {
@@ -417,99 +425,131 @@
                 body: JSON.stringify(payload)
             });
             const result = await checkResp.json();
-            const fb = document.getElementById(`feedback-${index}`);
+            const fb = document.getElementById('stepFeedback');
             if (result.overallScore >= 0.70) {
-                fb.innerHTML = `<span style="color: var(--success);">✅ Отлично! ${(result.overallScore*100).toFixed(0)}% — черта принята</span>`;
-                setTimeout(() => completeStep(index), 1000);
+                fb.innerHTML = `<span style="color: var(--success);">✅ Отлично! ${(result.overallScore*100).toFixed(0)}%</span>`;
+                setTimeout(() => advanceStep(), 800);
             } else {
                 fb.innerHTML = `<span style="color: var(--danger);">🔄 Попробуйте ещё раз (${(result.overallScore*100).toFixed(0)}%)</span>`;
             }
         } catch(e) {
-            document.getElementById(`feedback-${index}`).textContent = 'Ошибка проверки';
+            document.getElementById('stepFeedback').textContent = 'Ошибка проверки';
         }
     }
 
-    // ========== МИНИ-ВИКТОРИНЫ ==========
-    async function initMiniQuiz(index) {
-        const step = lessons[currentLessonId].steps[index];
-        const container = document.getElementById(`quizContainer-${index}`);
-        if (!container) return;
-
-        // Определяем тип
-        let quizType = 'reading';
-        if (step.type === 'quiz_meaning') quizType = 'meaning';
-        else if (step.type === 'quiz_character') quizType = 'character';
-        else if (step.type === 'quiz_mixed') {
-            const types = ['reading', 'meaning', 'character'];
-            quizType = types[Math.floor(Math.random() * 3)];
+    function smoothPoints(points, minDist = 3) {
+        if (points.length < 3) return points;
+        const smoothed = [];
+        smoothed.push(points[0]);
+        for (let i = 1; i < points.length - 1; i++) {
+            const sx = (points[i-1].x + points[i].x + points[i+1].x) / 3;
+            const sy = (points[i-1].y + points[i].y + points[i+1].y) / 3;
+            const last = smoothed[smoothed.length - 1];
+            const dist = Math.hypot(sx - last.x, sy - last.y);
+            if (dist >= minDist) smoothed.push({x: sx, y: sy});
         }
+        smoothed.push(points[points.length - 1]);
+        return smoothed;
+    }
+
+    // ========== ВИКТОРИНЫ ==========
+    async function loadQuizQuestion(quizType, step) {
+        const area = document.getElementById('quizArea');
+        if (!area) return;
 
         try {
             const resp = await fetch(`/api/quiz?type=${quizType}&level=${lessons[currentLessonId].level}`);
             if (!resp.ok) throw new Error('Нет вопроса');
             const q = await resp.json();
 
-            let html = `<p>${getQuestionText(quizType, q)}</p>`;
+            let questionText = '';
+            if (quizType === 'character') {
+                questionText = `Выберите иероглиф для: <strong>${q.prompt}</strong>`;
+            } else {
+                questionText = `Выберите правильный ответ для: <strong style="font-size: 40px;">${q.kanji}</strong>`;
+            }
+
+            let html = `<p style="font-size: 18px; margin-bottom: 15px;">${questionText}</p>`;
             html += '<div class="quiz-options">';
             q.options.forEach((opt, i) => {
-                html += `<button onclick="answerMiniQuiz(${index}, ${i}, ${q.correctIndex}, this)" class="quiz-option">${opt}</button>`;
+                html += `<button onclick="answerQuiz(${i}, ${q.correctIndex}, this)" class="quiz-option">${opt}</button>`;
             });
             html += '</div>';
-            html += `<div class="quiz-feedback" id="quizFeedback-${index}"></div>`;
-            container.innerHTML = html;
+            area.innerHTML = html;
         } catch(e) {
-            container.innerHTML = `<p>Ошибка загрузки вопроса</p>`;
+            area.innerHTML = '<p>Ошибка загрузки вопроса. <button class="btn btn-skip" onclick="skipStep()">Пропустить</button></p>';
         }
     }
 
-    function getQuestionText(type, q) {
-        if (type === 'character') return `Выберите иероглиф для: <strong>${q.prompt}</strong>`;
-        return `Выберите правильный ответ для: <strong>${q.kanji}</strong>`;
-    }
-
-    function answerMiniQuiz(stepIndex, chosenIndex, correctIndex, btn) {
-        const container = document.getElementById(`quizContainer-${stepIndex}`);
-        const buttons = container.querySelectorAll('.quiz-option');
+    function answerQuiz(chosenIndex, correctIndex, btn) {
+        const buttons = document.querySelectorAll('.quiz-option');
         buttons.forEach((b, i) => {
             b.disabled = true;
             if (i === correctIndex) b.classList.add('correct');
             if (i === chosenIndex && i !== correctIndex) b.classList.add('wrong');
         });
 
-        const fb = document.getElementById(`quizFeedback-${stepIndex}`);
+        const fb = document.getElementById('stepFeedback');
         if (chosenIndex === correctIndex) {
             fb.innerHTML = '<span style="color: var(--success);">✅ Правильно!</span>';
-            setTimeout(() => completeStep(stepIndex), 800);
+            setTimeout(() => advanceStep(), 800);
         } else {
             fb.innerHTML = '<span style="color: var(--danger);">❌ Неправильно. Попробуйте снова.</span>';
-            // Перезагружаем вопрос через 1.5 секунды
-            setTimeout(() => initMiniQuiz(stepIndex), 1500);
+            // Перезагружаем вопрос
+            const step = lessons[currentLessonId].steps[currentStepIndex];
+            let qt = 'reading';
+            if (step.type === 'quiz_meaning') qt = 'meaning';
+            else if (step.type === 'quiz_character') qt = 'character';
+            else if (step.type === 'quiz_mixed') {
+                qt = ['reading', 'meaning', 'character'][Math.floor(Math.random() * 3)];
+            }
+            setTimeout(() => loadQuizQuestion(qt, step), 1500);
         }
     }
 
-    // ========== ОБЩИЕ ФУНКЦИИ ==========
-    function completeStep(index) {
+    // ========== НАВИГАЦИЯ ==========
+    function advanceStep() {
         if (!completedSteps[currentLessonId]) completedSteps[currentLessonId] = new Set();
-        completedSteps[currentLessonId].add(index);
+        completedSteps[currentLessonId].add(currentStepIndex);
         saveProgress();
+
         const lesson = lessons[currentLessonId];
         let nextIndex = -1;
-        for (let i = index + 1; i < lesson.steps.length; i++) {
+        for (let i = currentStepIndex + 1; i < lesson.steps.length; i++) {
             if (!completedSteps[currentLessonId].has(i)) { nextIndex = i; break; }
         }
+
         if (nextIndex === -1) {
+            // Урок завершён
             currentStepIndex = lesson.steps.length;
-            alert('🎉 Урок пройден! Отличная работа!');
+            updateProgress();
+            showLessonComplete();
         } else {
             currentStepIndex = nextIndex;
+            updateProgress();
+            renderCurrentStep();
         }
-        renderSteps();
-        updateProgress();
-        renderLessonList();
     }
 
-    function skipStep(index) {
-        completeStep(index);
+    function skipStep() {
+        advanceStep();
+    }
+
+    function showLessonComplete() {
+        document.getElementById('progressText').textContent = '✅ Завершено';
+        document.getElementById('progressFill').style.width = '100%';
+
+        const screen = document.getElementById('stepScreen');
+        screen.innerHTML = `
+                <div class="lesson-complete">
+                    <div class="icon">🎉</div>
+                    <h2>Урок пройден!</h2>
+                    <p>Отличная работа! Вы изучили ${lessons[currentLessonId].kanji.length} иероглифов.</p>
+                    <button class="btn btn-primary" onclick="backToList()">← К списку уроков</button>
+                </div>
+            `;
+
+        renderLessonList();
     }
 
     function backToList() {
