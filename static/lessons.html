@@ -99,7 +99,6 @@
         .quiz-options button.correct { border-color: var(--success); background: #e8f5e9; font-weight: 600; }
         .quiz-options button.wrong { border-color: var(--danger); background: #ffebee; }
         .quiz-options button:disabled { opacity: 0.7; cursor: not-allowed; }
-        .quiz-feedback { margin-top: 12px; font-weight: 600; font-size: 16px; min-height: 24px; }
 
         .lesson-complete { text-align: center; padding: 40px; }
         .lesson-complete .icon { font-size: 80px; }
@@ -109,40 +108,39 @@
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 15px; }
         .stroke-info { font-size: 13px; color: var(--gray); margin-top: 5px; }
 
-        /* Индикатор загрузки */
+        .kanji-popup {
+            margin-top: 15px; padding: 15px;
+            background: #f0f4ff; border-radius: 10px;
+            text-align: left; font-size: 14px;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .kanji-popup .big-kanji { font-size: 36px; font-weight: 600; color: var(--primary); }
+        .kanji-popup .info-line { margin-top: 4px; color: #555; }
+
         .loading-overlay {
             display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.85);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.85); z-index: 1000;
+            justify-content: center; align-items: center; flex-direction: column;
         }
         .loading-overlay.active { display: flex; }
         .spinner {
             width: 50px; height: 50px;
-            border: 4px solid #e9ecef;
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            border: 4px solid #e9ecef; border-top: 4px solid var(--primary);
+            border-radius: 50%; animation: spin 0.8s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .loading-text {
-            margin-top: 15px;
-            color: var(--primary);
-            font-size: 16px;
-            font-weight: 500;
-        }
+        .loading-text { margin-top: 15px; color: var(--primary); font-size: 16px; font-weight: 500; }
         .skeleton {
             background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: 8px;
+            background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px;
         }
         @keyframes shimmer {
             0% { background-position: 200% 0; }
@@ -178,7 +176,6 @@
     <div id="stepScreen" class="step-screen"></div>
 </div>
 
-<!-- Индикатор загрузки -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
     <div class="loading-text" id="loadingText">Загрузка...</div>
@@ -190,11 +187,13 @@
     let completedSteps = {};
     let currentStepIndex = 0;
     let miniPoints = [];
+    let acceptedStrokes = [];
     let miniCtx = null;
     let miniCanvas = null;
     let svgPaths = [];
     let currentStrokeIndex = 0;
     let totalStrokes = 0;
+    let currentQuestion = null;
 
     // ========== ИНДИКАТОР ЗАГРУЗКИ ==========
     function showLoading(text = 'Загрузка...') {
@@ -227,14 +226,11 @@
                 renderLessonList();
                 hideLoading();
             })
-            .catch(err => {
-                console.error('Ошибка загрузки уроков:', err);
-                hideLoading();
-            });
+            .catch(err => { console.error('Ошибка загрузки уроков:', err); hideLoading(); });
     }
 
     function loadProgress() {
-        const saved = localStorage.getItem('kanji_lesson_progress_v2');
+        const saved = localStorage.getItem('kanji_lesson_progress_v3');
         if (saved) {
             const parsed = JSON.parse(saved);
             for (const [id, steps] of Object.entries(parsed)) {
@@ -248,7 +244,7 @@
         for (const [id, steps] of Object.entries(completedSteps)) {
             toSave[id] = [...steps];
         }
-        localStorage.setItem('kanji_lesson_progress_v2', JSON.stringify(toSave));
+        localStorage.setItem('kanji_lesson_progress_v3', JSON.stringify(toSave));
     }
 
     function resetLessonProgress(lessonId) {
@@ -319,6 +315,7 @@
         currentStrokeIndex = 0;
         totalStrokes = 0;
         miniPoints = [];
+        acceptedStrokes = [];
 
         showSkeleton();
 
@@ -378,7 +375,10 @@
         miniCanvas = document.getElementById('miniCanvas');
         if (!miniCanvas) { hideLoading(); return; }
         miniCtx = miniCanvas.getContext('2d');
+        miniCtx.imageSmoothingEnabled = true;
+        miniCtx.imageSmoothingQuality = 'high';
         miniPoints = [];
+        acceptedStrokes = [];
 
         svgPaths = [];
         try {
@@ -449,28 +449,49 @@
     function redrawCanvas() {
         if (!miniCtx || !miniCanvas) return;
         miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+
+        // Эталон
         if (svgPaths.length > 0) {
             miniCtx.save();
-            miniCtx.globalAlpha = 0.2;
-            miniCtx.strokeStyle = '#0066cc';
-            miniCtx.lineWidth = 2;
             miniCtx.scale(miniCanvas.width / 109, miniCanvas.height / 109);
             svgPaths.forEach((d, i) => {
-                if (i === currentStrokeIndex) {
+                if (i < currentStrokeIndex) {
+                    miniCtx.globalAlpha = 0.5;
+                    miniCtx.strokeStyle = '#4CAF50';
+                } else if (i === currentStrokeIndex) {
                     miniCtx.globalAlpha = 0.5;
                     miniCtx.strokeStyle = '#0066cc';
                 } else {
                     miniCtx.globalAlpha = 0.15;
                     miniCtx.strokeStyle = '#999';
                 }
+                miniCtx.lineWidth = 2;
                 const p = new Path2D(d);
                 miniCtx.stroke(p);
             });
             miniCtx.restore();
         }
+
+        // Принятые черты пользователя
+        acceptedStrokes.forEach(stroke => {
+            miniCtx.strokeStyle = '#4CAF50';
+            miniCtx.lineWidth = 2.5;
+            miniCtx.lineCap = 'round';
+            miniCtx.lineJoin = 'round';
+            miniCtx.beginPath();
+            miniCtx.moveTo(stroke[0].x * miniCanvas.width / 109, stroke[0].y * miniCanvas.height / 109);
+            for (let i = 1; i < stroke.length; i++) {
+                miniCtx.lineTo(stroke[i].x * miniCanvas.width / 109, stroke[i].y * miniCanvas.height / 109);
+            }
+            miniCtx.stroke();
+        });
+
+        // Текущая черта
         if (miniPoints.length > 1) {
-            miniCtx.strokeStyle = '#000';
-            miniCtx.lineWidth = 4;
+            miniCtx.strokeStyle = '#333';
+            miniCtx.lineWidth = 2.5;
+            miniCtx.lineCap = 'round';
+            miniCtx.lineJoin = 'round';
             miniCtx.beginPath();
             miniCtx.moveTo(miniPoints[0].x * miniCanvas.width / 109, miniPoints[0].y * miniCanvas.height / 109);
             for (let i = 1; i < miniPoints.length; i++) {
@@ -520,6 +541,7 @@
             const fb = document.getElementById('stepFeedback');
             if (result.overallScore >= 0.70) {
                 fb.innerHTML = `<span style="color: var(--success);">✅ Черта ${currentStrokeIndex+1} принята! ${(result.overallScore*100).toFixed(0)}%</span>`;
+                acceptedStrokes.push([...miniPoints]);
                 currentStrokeIndex++;
                 miniPoints = [];
                 updateStrokeInfo();
@@ -561,6 +583,7 @@
             const resp = await fetch(`/api/quiz?type=${quizType}&level=${lessons[currentLessonId].level}`);
             if (!resp.ok) throw new Error('Нет вопроса');
             const q = await resp.json();
+            currentQuestion = q;
             hideLoading();
 
             let questionText = '';
@@ -594,7 +617,27 @@
         const fb = document.getElementById('stepFeedback');
         if (chosenIndex === correctIndex) {
             fb.innerHTML = '<span style="color: var(--success);">✅ Правильно!</span>';
-            setTimeout(() => advanceStep(), 800);
+
+            // Показываем информацию о иероглифе
+            const correctKanji = currentQuestion.kanji;
+            if (correctKanji) {
+                fetch(`/api/dictionary/${encodeURIComponent(correctKanji)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const popup = document.createElement('div');
+                        popup.className = 'kanji-popup';
+                        popup.innerHTML = `
+                                <div class="big-kanji">${correctKanji}</div>
+                                <div class="info-line">${data.onyomi?.length ? 'Он: ' + data.onyomi.join(', ') : ''}</div>
+                                <div class="info-line">${data.kunyomi?.length ? 'Кун: ' + data.kunyomi.join(', ') : ''}</div>
+                                <div class="info-line">${data.meaning || ''}</div>
+                                <div class="info-line">${data.jlpt ? 'JLPT: ' + data.jlpt : ''} · ${data.stroke_count ? data.stroke_count + ' черт' : ''}</div>
+                            `;
+                        fb.appendChild(popup);
+                    });
+            }
+
+            setTimeout(() => advanceStep(), 1500);
         } else {
             fb.innerHTML = '<span style="color: var(--danger);">❌ Неправильно. Попробуйте снова.</span>';
             const step = lessons[currentLessonId].steps[currentStepIndex];
@@ -657,7 +700,10 @@
 
     function restartLesson() {
         resetLessonProgress(currentLessonId);
-        startLesson(currentLessonId);
+        currentStepIndex = 0;
+        if (!completedSteps[currentLessonId]) completedSteps[currentLessonId] = new Set();
+        updateProgress();
+        renderCurrentStep();
     }
 
     function backToList() {
@@ -666,7 +712,6 @@
         renderLessonList();
     }
 
-    // Запуск
     loadLessons();
 </script>
 </body>
