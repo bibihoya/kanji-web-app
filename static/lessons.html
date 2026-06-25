@@ -28,7 +28,6 @@
         .nav a:hover { background: #e3f0ff; }
         .nav a.active { background: var(--primary); color: white; }
 
-        /* Список уроков */
         .lesson-list { display: flex; flex-direction: column; gap: 12px; }
         .lesson-card {
             background: white; border-radius: 14px; padding: 22px 25px;
@@ -50,7 +49,6 @@
             border-radius: 5px; font-size: 15px; font-weight: 500;
         }
 
-        /* Экран урока */
         .lesson-view { display: none; }
         .lesson-view.active { display: block; }
 
@@ -64,9 +62,7 @@
             box-shadow: var(--shadow); text-align: center; min-height: 350px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .step-title {
-            font-size: 20px; font-weight: 600; color: var(--primary); margin-bottom: 10px;
-        }
+        .step-title { font-size: 20px; font-weight: 600; color: var(--primary); margin-bottom: 10px; }
         .step-subtitle { font-size: 14px; color: var(--gray); margin-bottom: 20px; }
 
         .dict-info {
@@ -91,6 +87,7 @@
         .btn-success:hover { background: #3d9142; }
         .btn-back { background: #e9ecef; color: #333; margin-bottom: 15px; }
         .btn-skip { background: #eee; color: #666; font-size: 12px; }
+        .btn-danger { background: var(--danger); color: white; }
 
         .quiz-options { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 15px; }
         .quiz-options button {
@@ -104,14 +101,53 @@
         .quiz-options button:disabled { opacity: 0.7; cursor: not-allowed; }
         .quiz-feedback { margin-top: 12px; font-weight: 600; font-size: 16px; min-height: 24px; }
 
-        .lesson-complete {
-            text-align: center; padding: 40px;
-        }
+        .lesson-complete { text-align: center; padding: 40px; }
         .lesson-complete .icon { font-size: 80px; }
         .lesson-complete h2 { color: var(--success); margin: 20px 0; }
         .lesson-complete p { color: var(--gray); margin-bottom: 20px; font-size: 16px; }
 
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 15px; }
+        .stroke-info { font-size: 13px; color: var(--gray); margin-top: 5px; }
+
+        /* Индикатор загрузки */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .loading-overlay.active { display: flex; }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 4px solid #e9ecef;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-text {
+            margin-top: 15px;
+            color: var(--primary);
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
 <body>
@@ -142,6 +178,12 @@
     <div id="stepScreen" class="step-screen"></div>
 </div>
 
+<!-- Индикатор загрузки -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Загрузка...</div>
+</div>
+
 <script>
     let lessons = {};
     let currentLessonId = null;
@@ -151,18 +193,48 @@
     let miniCtx = null;
     let miniCanvas = null;
     let svgPaths = [];
+    let currentStrokeIndex = 0;
+    let totalStrokes = 0;
 
-    // Загрузка уроков
-    fetch('/api/lessons')
-        .then(r => r.json())
-        .then(data => {
-            lessons = data;
-            loadProgress();
-            renderLessonList();
-        });
+    // ========== ИНДИКАТОР ЗАГРУЗКИ ==========
+    function showLoading(text = 'Загрузка...') {
+        document.getElementById('loadingText').textContent = text;
+        document.getElementById('loadingOverlay').classList.add('active');
+    }
+
+    function hideLoading() {
+        document.getElementById('loadingOverlay').classList.remove('active');
+    }
+
+    function showSkeleton() {
+        const screen = document.getElementById('stepScreen');
+        screen.innerHTML = `
+                <div class="skeleton" style="width: 60%; height: 24px; margin: 10px auto;"></div>
+                <div class="skeleton" style="width: 40%; height: 16px; margin: 10px auto;"></div>
+                <div class="skeleton" style="width: 300px; height: 300px; margin: 20px auto; border-radius: 8px;"></div>
+                <div class="skeleton" style="width: 200px; height: 40px; margin: 10px auto;"></div>
+            `;
+    }
+
+    // ========== ЗАГРУЗКА УРОКОВ ==========
+    function loadLessons() {
+        showLoading('Загрузка уроков...');
+        fetch('/api/lessons')
+            .then(r => r.json())
+            .then(data => {
+                lessons = data;
+                loadProgress();
+                renderLessonList();
+                hideLoading();
+            })
+            .catch(err => {
+                console.error('Ошибка загрузки уроков:', err);
+                hideLoading();
+            });
+    }
 
     function loadProgress() {
-        const saved = localStorage.getItem('kanji_lesson_progress');
+        const saved = localStorage.getItem('kanji_lesson_progress_v2');
         if (saved) {
             const parsed = JSON.parse(saved);
             for (const [id, steps] of Object.entries(parsed)) {
@@ -176,7 +248,12 @@
         for (const [id, steps] of Object.entries(completedSteps)) {
             toSave[id] = [...steps];
         }
-        localStorage.setItem('kanji_lesson_progress', JSON.stringify(toSave));
+        localStorage.setItem('kanji_lesson_progress_v2', JSON.stringify(toSave));
+    }
+
+    function resetLessonProgress(lessonId) {
+        delete completedSteps[lessonId];
+        saveProgress();
     }
 
     function renderLessonList() {
@@ -200,22 +277,23 @@
     }
 
     function startLesson(lessonId) {
+        showLoading('Загрузка урока...');
         currentLessonId = lessonId;
         const lesson = lessons[lessonId];
-        if (!lesson) return;
+        if (!lesson) { hideLoading(); return; }
+
         document.getElementById('lessonList').style.display = 'none';
         document.getElementById('lessonView').classList.add('active');
         document.getElementById('lessonTitle').textContent = `Урок ${lessonId}: ${lesson.title}`;
         if (!completedSteps[lessonId]) completedSteps[lessonId] = new Set();
 
-        // Находим первый незавершённый шаг
         currentStepIndex = 0;
         for (let i = 0; i < lesson.steps.length; i++) {
             if (!completedSteps[lessonId].has(i)) { currentStepIndex = i; break; }
         }
 
         if (currentStepIndex >= lesson.steps.length) {
-            // Все шаги завершены
+            hideLoading();
             showLessonComplete();
         } else {
             updateProgress();
@@ -238,13 +316,17 @@
         const screen = document.getElementById('stepScreen');
 
         updateProgress();
+        currentStrokeIndex = 0;
+        totalStrokes = 0;
+        miniPoints = [];
+
+        showSkeleton();
 
         let html = '';
         html += `<div class="step-title">Шаг ${currentStepIndex+1} из ${lesson.steps.length}</div>`;
         html += `<div class="step-subtitle">${step.title}</div>`;
 
         if (step.type === 'practice') {
-            // Загружаем информацию о кандзи
             let dictHTML = '';
             try {
                 const resp = await fetch(`/api/dictionary/${encodeURIComponent(step.kanji)}`);
@@ -254,53 +336,50 @@
                     if (data.onyomi?.length) parts.push('Он: ' + data.onyomi.join(', '));
                     if (data.kunyomi?.length) parts.push('Кун: ' + data.kunyomi.join(', '));
                     if (data.meaning) parts.push(data.meaning);
+                    if (data.stroke_count) parts.push('Черт: ' + data.stroke_count);
                     dictHTML = `<div class="dict-info">${parts.join(' · ')}</div>`;
+                    totalStrokes = data.stroke_count || 0;
                 }
             } catch(e) {}
 
             html += dictHTML;
+            html += `<div class="stroke-info" id="strokeInfo">Рисуйте черту за чертой</div>`;
             html += `<canvas id="miniCanvas" class="mini-canvas" width="300" height="300"></canvas>`;
             html += `<div class="btn-group">`;
             html += `<button class="btn btn-primary" onclick="clearCanvas()">🗑 Очистить</button>`;
-            html += `<button class="btn btn-success" onclick="checkPractice()">✓ Проверить</button>`;
-            html += `<button class="btn btn-skip" onclick="skipStep()">Пропустить</button>`;
+            html += `<button class="btn btn-success" onclick="checkPractice()">✓ Проверить черту</button>`;
+            html += `<button class="btn btn-skip" onclick="skipCurrentStep()">Пропустить шаг</button>`;
             html += `</div>`;
             html += `<div id="stepFeedback" style="margin-top: 10px; font-weight: 600; min-height: 24px;"></div>`;
 
             screen.innerHTML = html;
-
-            // Инициализируем canvas
             setTimeout(() => initPracticeCanvas(step.kanji), 100);
 
         } else if (step.type.startsWith('quiz_')) {
-            // Определяем тип викторины
             let quizType = 'reading';
             if (step.type === 'quiz_meaning') quizType = 'meaning';
             else if (step.type === 'quiz_character') quizType = 'character';
             else if (step.type === 'quiz_mixed') {
-                const types = ['reading', 'meaning', 'character'];
-                quizType = types[Math.floor(Math.random() * 3)];
+                quizType = ['reading', 'meaning', 'character'][Math.floor(Math.random() * 3)];
             }
 
             html += `<div id="quizArea">Загрузка вопроса...</div>`;
             html += `<div id="stepFeedback" style="margin-top: 10px; font-weight: 600; min-height: 24px;"></div>`;
-            html += `<button class="btn btn-skip" onclick="skipStep()" style="margin-top: 15px;">Пропустить</button>`;
+            html += `<button class="btn btn-skip" onclick="skipCurrentStep()" style="margin-top: 15px;">Пропустить шаг</button>`;
 
             screen.innerHTML = html;
-
-            // Загружаем вопрос
             setTimeout(() => loadQuizQuestion(quizType, step), 100);
         }
     }
 
     // ========== ПРАКТИКА ПИСЬМА ==========
     async function initPracticeCanvas(kanji) {
+        showLoading('Загрузка эталона...');
         miniCanvas = document.getElementById('miniCanvas');
-        if (!miniCanvas) return;
+        if (!miniCanvas) { hideLoading(); return; }
         miniCtx = miniCanvas.getContext('2d');
         miniPoints = [];
 
-        // Загружаем эталон
         svgPaths = [];
         try {
             const resp = await fetch('/api/kanji');
@@ -312,9 +391,12 @@
                 const parser = new DOMParser();
                 const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
                 svgPaths = [...svgDoc.querySelectorAll('path')].map(p => p.getAttribute('d'));
+                totalStrokes = svgPaths.length;
+                updateStrokeInfo();
             }
         } catch(e) {}
 
+        hideLoading();
         redrawCanvas();
 
         miniCanvas.onmousedown = e => {
@@ -357,23 +439,35 @@
         miniCanvas.ontouchend = () => { miniCanvas.ontouchmove = null; };
     }
 
+    function updateStrokeInfo() {
+        const info = document.getElementById('strokeInfo');
+        if (info && totalStrokes > 0) {
+            info.textContent = `Черта ${currentStrokeIndex + 1} из ${totalStrokes}`;
+        }
+    }
+
     function redrawCanvas() {
         if (!miniCtx || !miniCanvas) return;
         miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
-        // Эталон
         if (svgPaths.length > 0) {
             miniCtx.save();
             miniCtx.globalAlpha = 0.2;
             miniCtx.strokeStyle = '#0066cc';
             miniCtx.lineWidth = 2;
             miniCtx.scale(miniCanvas.width / 109, miniCanvas.height / 109);
-            svgPaths.forEach(d => {
+            svgPaths.forEach((d, i) => {
+                if (i === currentStrokeIndex) {
+                    miniCtx.globalAlpha = 0.5;
+                    miniCtx.strokeStyle = '#0066cc';
+                } else {
+                    miniCtx.globalAlpha = 0.15;
+                    miniCtx.strokeStyle = '#999';
+                }
                 const p = new Path2D(d);
                 miniCtx.stroke(p);
             });
             miniCtx.restore();
         }
-        // Текущая черта
         if (miniPoints.length > 1) {
             miniCtx.strokeStyle = '#000';
             miniCtx.lineWidth = 4;
@@ -400,23 +494,19 @@
             return;
         }
 
-        // Находим ID иероглифа
+        showLoading('Проверка...');
+
         const resp = await fetch('/api/kanji');
         const all = await resp.json();
         const found = all.find(k => k.character === kanji);
         if (!found) {
+            hideLoading();
             document.getElementById('stepFeedback').innerHTML = '<span style="color: var(--danger);">Иероглиф не найден</span>';
             return;
         }
 
-        // Сглаживаем точки
         const smoothed = smoothPoints(miniPoints, 3);
-
-        const payload = {
-            kanji: found.id,
-            strokeIndex: 0,
-            points: smoothed
-        };
+        const payload = { kanji: found.id, strokeIndex: currentStrokeIndex, points: smoothed };
 
         try {
             const checkResp = await fetch('/api/check-stroke', {
@@ -425,14 +515,23 @@
                 body: JSON.stringify(payload)
             });
             const result = await checkResp.json();
+            hideLoading();
+
             const fb = document.getElementById('stepFeedback');
             if (result.overallScore >= 0.70) {
-                fb.innerHTML = `<span style="color: var(--success);">✅ Отлично! ${(result.overallScore*100).toFixed(0)}%</span>`;
-                setTimeout(() => advanceStep(), 800);
+                fb.innerHTML = `<span style="color: var(--success);">✅ Черта ${currentStrokeIndex+1} принята! ${(result.overallScore*100).toFixed(0)}%</span>`;
+                currentStrokeIndex++;
+                miniPoints = [];
+                updateStrokeInfo();
+                redrawCanvas();
+                if (currentStrokeIndex >= totalStrokes) {
+                    setTimeout(() => advanceStep(), 800);
+                }
             } else {
-                fb.innerHTML = `<span style="color: var(--danger);">🔄 Попробуйте ещё раз (${(result.overallScore*100).toFixed(0)}%)</span>`;
+                fb.innerHTML = `<span style="color: var(--danger);">🔄 Черта ${currentStrokeIndex+1}: попробуйте ещё раз (${(result.overallScore*100).toFixed(0)}%)</span>`;
             }
         } catch(e) {
+            hideLoading();
             document.getElementById('stepFeedback').textContent = 'Ошибка проверки';
         }
     }
@@ -457,10 +556,12 @@
         const area = document.getElementById('quizArea');
         if (!area) return;
 
+        showLoading('Загрузка вопроса...');
         try {
             const resp = await fetch(`/api/quiz?type=${quizType}&level=${lessons[currentLessonId].level}`);
             if (!resp.ok) throw new Error('Нет вопроса');
             const q = await resp.json();
+            hideLoading();
 
             let questionText = '';
             if (quizType === 'character') {
@@ -477,7 +578,8 @@
             html += '</div>';
             area.innerHTML = html;
         } catch(e) {
-            area.innerHTML = '<p>Ошибка загрузки вопроса. <button class="btn btn-skip" onclick="skipStep()">Пропустить</button></p>';
+            hideLoading();
+            area.innerHTML = '<p>Ошибка загрузки вопроса.</p>';
         }
     }
 
@@ -495,7 +597,6 @@
             setTimeout(() => advanceStep(), 800);
         } else {
             fb.innerHTML = '<span style="color: var(--danger);">❌ Неправильно. Попробуйте снова.</span>';
-            // Перезагружаем вопрос
             const step = lessons[currentLessonId].steps[currentStepIndex];
             let qt = 'reading';
             if (step.type === 'quiz_meaning') qt = 'meaning';
@@ -520,7 +621,6 @@
         }
 
         if (nextIndex === -1) {
-            // Урок завершён
             currentStepIndex = lesson.steps.length;
             updateProgress();
             showLessonComplete();
@@ -531,7 +631,7 @@
         }
     }
 
-    function skipStep() {
+    function skipCurrentStep() {
         advanceStep();
     }
 
@@ -545,11 +645,19 @@
                     <div class="icon">🎉</div>
                     <h2>Урок пройден!</h2>
                     <p>Отличная работа! Вы изучили ${lessons[currentLessonId].kanji.length} иероглифов.</p>
-                    <button class="btn btn-primary" onclick="backToList()">← К списку уроков</button>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="backToList()">← К списку уроков</button>
+                        <button class="btn btn-danger" onclick="restartLesson()">🔄 Пройти заново</button>
+                    </div>
                 </div>
             `;
 
         renderLessonList();
+    }
+
+    function restartLesson() {
+        resetLessonProgress(currentLessonId);
+        startLesson(currentLessonId);
     }
 
     function backToList() {
@@ -557,6 +665,9 @@
         document.getElementById('lessonView').classList.remove('active');
         renderLessonList();
     }
+
+    // Запуск
+    loadLessons();
 </script>
 </body>
 </html>
